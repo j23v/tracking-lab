@@ -7,15 +7,18 @@
 //   /lab, /lab/api/*    o Hub, atras da senha do cliente (SENHA_HUB)
 //   cron (10 min)       nova tentativa de envio, limpeza das visitas
 //
-// F0 (instalacao pelo botao), F1 (o motor) e F1b (qualquer checkout). As telas
-// das etapas do Hub sao a F2: por enquanto o painel mostra o estado e a API ja faz tudo.
+// F0 (instalacao pelo botao), F1 (o motor), F1b (qualquer checkout) e F2 (as
+// telas do Hub: src/hub/app.html, que usa a API /lab/api/*).
 
 import { analisarExemplo, autenticar, traduzir, validarPerfil } from './checkouts/perfil.js';
 import { EM_BREVE, PERFIS } from './checkouts/perfis.js';
 import {
   alertar, gravarConfig, gravarSegredo, lerConfig, lerSegredo, segredoValido,
 } from './config.js';
-import { paginaEntrar, paginaPainel, paginaSemSenha } from './hub.js';
+import { detectarPagina } from './deteccao.js';
+import { paginaEntrar, paginaSemSenha } from './hub.js';
+import { paginaApp } from './hub/app.js';
+import { FAVICON, logoSvg } from './hub/marca.js';
 import { GRAPH_VERSAO_PADRAO, conferirChave, lerQualidade } from './meta.js';
 import {
   formatoDoPayload, processarVenda, reenviarPendentes, testeComControle,
@@ -27,8 +30,10 @@ import {
 
 // ⚠️ Sem `export` aqui: o modulo principal do Worker so pode exportar handlers
 // (o runtime recusa subir com uma constante exportada -- visto na F0).
-const VERSAO = '0.2.0';
+const VERSAO = '0.3.0';
 const TABELAS = ['alertas', 'config', 'envios', 'segredos', 'visitas'];
+// A origem publica do Tracking Lab (versoes novas e a rotina de atualizacao).
+const ORIGEM_REPO = 'j23v/tracking-lab';
 
 const html = (corpo, status = 200, extra = {}) => new Response(corpo, {
   status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...extra },
@@ -48,6 +53,7 @@ async function estado(env) {
   const st = {
     versao: VERSAO, banco: 'ok', tabelas: [], tabelasFaltando: [...TABELAS], ultimoCron: null,
     segredos: [], config: null, ultimoWebhook: null, envios24h: [], alertas: [],
+    deteccao: null, ultimoTeste: null, visitas24h: null,
   };
   if (!env.DB) return { ...st, banco: 'sem_binding' };
   try {
@@ -68,6 +74,14 @@ async function estado(env) {
       'SELECT evento, status, teste, count(*) n FROM envios WHERE quando >= ? GROUP BY evento, status, teste ORDER BY evento, n DESC',
     ).bind(desde).all()).results;
     st.alertas = (await env.DB.prepare('SELECT tipo, quando, detalhe FROM alertas WHERE resolvido IS NULL ORDER BY quando DESC LIMIT 10').all()).results;
+    const det = await marca('deteccao');
+    st.deteccao = det ? JSON.parse(det) : null;
+    const t = await marca('ultimo_teste');
+    st.ultimoTeste = t ? JSON.parse(t) : null;
+    // So contagens: a visita tem IP e navegador, que nao saem daqui.
+    st.visitas24h = await env.DB.prepare(
+      'SELECT count(*) n, sum(fbc IS NOT NULL) fbc, sum(fbp IS NOT NULL) fbp, max(vista) ultima FROM visitas WHERE vista >= ?',
+    ).bind(desde).first();
   } catch (erro) {
     st.banco = `erro: ${String(erro).slice(0, 120)}`;
   }
@@ -250,7 +264,43 @@ async function rotaDaApi(caminho, request, env) {
 
   if (caminho === '/lab/api/teste-controle' && metodo === 'POST') {
     const r = await testeComControle(env);
+    if (r.casos) await gravarMarca(env, 'ultimo_teste', { quando: Date.now(), ok: r.ok });
     return json(r, r.casos ? 200 : 409);
+  }
+
+  // "Suas plataformas": le a pagina de vendas de fora. Sem URL, usa a pagina
+  // configurada; com URL, ela passa a ser a pagina de vendas.
+  if (caminho === '/lab/api/detectar' && metodo === 'POST') {
+    const { url } = (await corpoJson(request)) || {};
+    const cfg = await lerConfig(env);
+    const alvo = String(url || cfg.dominio || '').trim();
+    if (!alvo) return json({ ok: false, erro: 'diga o endereço da página de vendas' }, 400);
+    const r = await detectarPagina(alvo, new URL(request.url).origin);
+    if (r.quando) {
+      await gravarMarca(env, 'deteccao', r);
+      // A pagina que o cliente acabou de dizer passa a ser a pagina de vendas.
+      if (r.ok && (url || !cfg.dominio)) await gravarConfig(env, { dominio: r.url });
+    }
+    return json(r, r.quando ? 200 : 422);
+  }
+
+  // O que so o cliente pode afirmar ("desliguei a Compra no checkout").
+  if (caminho === '/lab/api/confirmar' && metodo === 'POST') {
+    const { chave, valor } = (await corpoJson(request)) || {};
+    const cfg = await lerConfig(env);
+    const r = await gravarConfig(env, { confirmacoes: { ...cfg.confirmacoes, [chave]: Boolean(valor) } });
+    return json(r.ok ? { ok: true, confirmacoes: r.config.confirmacoes } : r, r.ok ? 200 : 400);
+  }
+
+  // Versao instalada x a mais nova da origem, e a rotina de atualizacao (para o
+  // link "instalar a rotina" no GitHub do cliente). So le arquivos publicos.
+  if (caminho === '/lab/api/versao') {
+    const bruto = (arq) => fetch(`https://raw.githubusercontent.com/${ORIGEM_REPO}/main/${arq}`, { signal: AbortSignal.timeout(8000) })
+      .then((r) => (r.ok ? r.text() : '')).catch(() => '');
+    const [pacote, rotina] = await Promise.all([bruto('package.json'), bruto('.github/workflows/atualizar.yml')]);
+    let ultima = '';
+    try { ultima = JSON.parse(pacote).version || ''; } catch { /* sem rede: fica vazio */ }
+    return json({ instalada: VERSAO, ultima, origem: ORIGEM_REPO, rotina });
   }
 
   if (caminho === '/lab/api/reenviar' && metodo === 'POST') return json(await reenviarPendentes(env));
@@ -300,6 +350,12 @@ export default {
       });
     }
 
+    if (caminho === '/lab/logo.svg' || caminho === '/favicon.svg' || caminho === '/favicon.ico') {
+      return new Response(caminho === '/lab/logo.svg' ? logoSvg({ tamanho: 168 }) : FAVICON, {
+        headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+
     if (caminho === '/v.js' && (request.method === 'GET' || request.method === 'HEAD')) {
       // Sem o banco (instalacao pela metade), marca ao menos os checkouts prontos.
       const cfg = await lerConfig(env).catch(() => null);
@@ -346,12 +402,7 @@ export default {
           return json({ erro: 'falha interna' }, 500);
         }
       }
-      if (caminho === '/lab') {
-        const st = await estado(env);
-        const usados = st.config?.checkouts?.length ? st.config.checkouts : Object.keys(PERFIS).filter((k) => k !== 'padrao');
-        const checkouts = usados.map((id) => ({ id, nome: perfilDe(id, st.config)?.nome || id, pronto: Boolean(perfilDe(id, st.config)) }));
-        return html(paginaPainel(st, url.origin, checkouts));
-      }
+      if (caminho === '/lab') return html(paginaApp({ origem: url.origin, versao: VERSAO }));
       return html(paginaEntrar({ erro: 'Página não encontrada.' }), 404);
     }
 

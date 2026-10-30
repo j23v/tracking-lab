@@ -3,7 +3,10 @@
 Suas vendas do checkout chegam ao Meta pelo servidor, ligadas ao clique do anúncio, com um Hub que
 ensina e confere cada passo.
 
-> **Versão 0.2 (em teste).** Já funcionam a instalação e o envio das vendas ao Meta (Compra e
+> **Versão 0.3 (em teste).** O **Hub** tem as 11 etapas, cada uma com o passo a passo e a sua
+> luz: suas plataformas (lidas da página), chave do Meta, página, checkout, anti-duplicação, teste
+> com controle, ligar, resultados, privacidade, reembolso e atualizações.
+> Já funcionam a instalação e o envio das vendas ao Meta (Compra e
 > Reembolso, ligados à visita da página, com nova tentativa automática). Checkouts com perfil
 > pronto: **Kirvano** (confirmado em vendas reais), **Kiwify**, **Hotmart**, **Eduzz** e **Cakto**
 > (pela documentação, confirmados na 1ª venda real). Também há o **Formato padrão** (API) e o

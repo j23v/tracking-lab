@@ -129,7 +129,7 @@ try {
     && /HttpOnly/i.test(certa.headers.get('set-cookie') || ''));
 
   const painel = await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text();
-  ok('painel: banco com as 5 tabelas', painel.includes('5 tabelas criadas'));
+  ok('com login, abre o Hub (nao a tela de entrar)', painel.includes('id="passos"') && !painel.includes('Entrar no seu Hub'));
 
   const st = await (await fetch(`${BASE}/lab/api/status`, { headers: { Cookie: cookie } })).json();
   ok('status: nenhuma tabela faltando', st.banco === 'ok' && st.tabelasFaltando.length === 0, st.tabelas.join(','));

@@ -15,7 +15,12 @@ export const PADRAO = {
   pais: 'br',
   moeda: 'BRL',
   codigo_teste: '',    // TEST... do Gerenciador: preenchido = tudo vai como TESTE
+  repositorio: '',     // usuario/repo da copia no GitHub (para o link da rotina de atualizacao)
+  confirmacoes: {},    // o que so o cliente pode afirmar: { dup_checkout: true, privacidade: true, ... }
 };
+
+// As confirmacoes que o Hub pede (o resto e conferido sozinho).
+export const CONFIRMACOES = ['dup_checkout', 'dup_ferramentas', 'privacidade', 'reembolso', 'rotina'];
 
 export const IDS_DE_CHECKOUT = [...Object.keys(PERFIS), 'outro'];
 
@@ -39,7 +44,9 @@ export function validarConfig(parcial) {
     if (d) {
       let u;
       try { u = new URL(/^https?:\/\//.test(d) ? d : `https://${d}`); } catch { return erro('domínio inválido'); }
-      c.dominio = `${u.protocol}//${u.host}/`;
+      // A pagina INTEIRA (sem ?query e #): a venda pode estar em /oferta, e a
+      // conferencia da pagina tem que olhar ali, nao na raiz do site.
+      c.dominio = `${u.protocol}//${u.host}${u.pathname}`;
     } else c.dominio = '';
   }
   // `checkout` (um so) e o nome antigo, da 0.1.0.
@@ -69,6 +76,15 @@ export function validarConfig(parcial) {
     const m = String(parcial.moeda || '').trim().toUpperCase();
     if (!/^[A-Z]{3}$/.test(m)) return erro('moeda: três letras (ex.: BRL)');
     c.moeda = m;
+  }
+  if ('repositorio' in parcial) {
+    const r = String(parcial.repositorio || '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$|\/$/g, '');
+    if (r && !/^[\w.-]{1,39}\/[\w.-]{1,100}$/.test(r)) return erro('repositório: usuario/nome (ex.: ana-loja/tracking-lab)');
+    c.repositorio = r;
+  }
+  if ('confirmacoes' in parcial) {
+    const o = parcial.confirmacoes && typeof parcial.confirmacoes === 'object' ? parcial.confirmacoes : {};
+    c.confirmacoes = Object.fromEntries(CONFIRMACOES.filter((k) => k in o).map((k) => [k, Boolean(o[k])]));
   }
   if ('codigo_teste' in parcial) {
     const t = String(parcial.codigo_teste || '').trim();

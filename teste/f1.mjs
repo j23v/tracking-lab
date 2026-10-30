@@ -46,6 +46,15 @@ const meta = createServer((req, res) => {
   let corpo = '';
   req.on('data', (c) => { corpo += c; });
   req.on('end', () => {
+    if (req.url.startsWith('/pagina')) {
+      // Uma pagina de vendas de mentira para a deteccao ("Suas plataformas").
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('x-litespeed-cache', 'hit');
+      res.end(`<html><head><link rel="stylesheet" href="/wp-content/themes/x.css"><script src="https://cdn.utmify.com.br/scripts/utms/latest.js"></script>
+<script src="${BASE}/v.js" async></script><script>fbq('init', '111111'); fbq('track','Purchase');</script></head>
+<body class="elementor-page"><a href="https://pay.kirvano.com/abc">Comprar</a></body></html>`);
+      return;
+    }
     res.setHeader('Content-Type', 'application/json');
     if (req.url.includes('/dataset_quality')) {
       res.end(JSON.stringify({ web: [{ event_name: 'Purchase', event_match_quality: { composite_score: 9.0 } }] }));
@@ -316,10 +325,35 @@ try {
   ok('CONTROLE: "outro" com segredo errado -> 401',
     (await fetch(`${BASE}/w/outro`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.replace('segredo-z', 'nao') })).status === 401);
 
-  secao('painel');
-  const painel = await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text();
-  ok('painel mostra pixel, chave (so a dica) e o que colar', painel.includes('111111') && painel.includes('TOKE…OVO')
-    && !painel.includes('TOKEN-NOVO') && painel.includes('/v.js') && painel.includes('/w/kirvano'));
+  secao('Hub (telas)');
+  const app = await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text();
+  ok('o Hub abre com a logo e o endereço do Worker', app.includes('<svg') && app.includes(`const ORIGEM = '${BASE}'`) && !app.includes('{{'));
+  // O erro de 30/10: um "</script>" dentro do JavaScript do Hub cortava a pagina.
+  const jsHub = app.slice(app.indexOf('<script>') + 8, app.lastIndexOf('</script>'));
+  let jsOk = true;
+  try { new Function(jsHub); } catch { jsOk = false; } // eslint-disable-line no-new-func
+  ok('o JavaScript do Hub e valido e nao fecha o proprio script', jsOk && !jsHub.includes('</script'));
+  ok('CONTROLE: sem login, o Hub pede a senha', (await (await fetch(`${BASE}/lab`)).text()).includes('Entrar no seu Hub'));
+  const logo = await fetch(`${BASE}/lab/logo.svg`);
+  ok('logo e icone publicos (SVG)', logo.ok && /svg/.test(logo.headers.get('content-type') || '') && (await fetch(`${BASE}/favicon.svg`)).ok);
+  const st = (await api('/lab/api/status')).j;
+  ok('status: pixel, chave so pela dica, visitas contadas', st.config.pixels.includes('111111') && st.segredos.some((s) => s.dica === 'TOKE…OVO')
+    && !JSON.stringify(st).includes('TOKEN-NOVO') && st.visitas24h?.n >= 1 && st.visitas24h?.fbc >= 1);
+  ok('status nao expoe IP nem navegador das visitas', !JSON.stringify(st).includes('Mozilla/5.0 suite'));
+  const det = await api('/lab/api/detectar', { url: `http://127.0.0.1:${PORTA_META}/pagina` });
+  ok('detectar: WordPress, Elementor, pixel, checkout Kirvano, UTMify, script', det.j.ok
+    && det.j.sites.some((s) => s.id === 'wordpress') && det.j.sites.some((s) => s.id === 'elementor')
+    && det.j.pixels.includes('111111') && det.j.checkouts.some((c) => c.id === 'kirvano')
+    && det.j.ferramentas.some((f) => f.id === 'utmify') && det.j.script === true, JSON.stringify(det.j).slice(0, 300));
+  ok('CONTROLE: detectar acha a Compra no navegador', det.j.compraNoNavegador === true);
+  ok('a deteccao fica no status', (await api('/lab/api/status')).j.deteccao?.pixels?.includes('111111'));
+  const conf1 = await api('/lab/api/confirmar', { chave: 'dup_checkout', valor: true });
+  ok('confirmacao guardada', conf1.j.ok && conf1.j.confirmacoes.dup_checkout === true);
+  ok('CONTROLE: confirmacao desconhecida e ignorada', (await api('/lab/api/confirmar', { chave: 'qualquer', valor: true })).j.confirmacoes.qualquer === undefined);
+  ok('CONTROLE: repositorio invalido recusado', (await api('/lab/api/config', { repositorio: 'nao é repo' })).status === 400);
+  ok('repositorio aceito (link do GitHub vira usuario/nome)', (await api('/lab/api/config', { repositorio: 'https://github.com/ana/tracking-lab' })).j.config.repositorio === 'ana/tracking-lab');
+  ok('teste com controle fica registrado para a etapa', (await api('/lab/api/status')).j.ultimoTeste?.ok === true);
+  ok('versao instalada informada', (await api('/lab/api/versao')).j.instalada === versao);
 } catch (erro) {
   ok('suite', false, String(erro.stderr || erro.stack || erro.message).slice(-500));
 } finally {

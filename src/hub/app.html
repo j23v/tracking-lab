@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Hub — Tracking Lab</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#141619; --p1:#1b1e23; --p2:#22262c; --p3:#2a2f36; --borda:#2f343c; --borda2:#3a404a;
+  --tx:#e6e9ee; --tx2:#a7afbb; --tx3:#7b8492;
+  --verde:#35e35a; --verde2:#1f9e3d; --verde-f:#12301b; --laranja:#ff7a3d; --azul:#4d8dff; --ciano:#22b8c7;
+  --verm:#ff5a5a; --verm-f:#3a1719; --amar:#f5c542; --amar-f:#3a3015;
+  --r:3px; --fonte:'Chakra Petch',ui-sans-serif,system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.55 var(--fonte)}
+body{min-height:100vh}
+a{color:var(--verde)}
+button,input,select,textarea{font:inherit;color:inherit}
+::selection{background:var(--verde2);color:#fff}
+/* topo */
+.topo{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px;padding:10px 20px;background:rgba(20,22,25,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--borda)}
+.marca{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--tx)}
+.marca svg{width:62px;height:auto;display:block}
+.nome{font-weight:700;letter-spacing:.12em;font-size:15px;text-transform:uppercase}
+.nome b{color:var(--verde);font-weight:700}
+.sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 11px/1 var(--fonte);letter-spacing:.1em;text-transform:uppercase;padding:6px 9px;border:1px solid var(--borda2);border-radius:var(--r);color:var(--tx2);background:var(--p1);white-space:nowrap}
+.chip.verde{color:var(--verde);border-color:var(--verde2);background:var(--verde-f)}
+.chip.amar{color:var(--amar);border-color:#7a6420;background:var(--amar-f)}
+.chip.verm{color:var(--verm);border-color:#7a2a2d;background:var(--verm-f)}
+.led{width:8px;height:8px;border-radius:1px;background:var(--tx3);flex:none;display:inline-block}
+.led.ok{background:var(--verde);box-shadow:0 0 8px var(--verde)}
+.led.meio{background:var(--amar);box-shadow:0 0 6px var(--amar)}
+.led.bad{background:var(--verm);box-shadow:0 0 8px var(--verm)}
+.led.opc{background:transparent;border:1px solid var(--tx3)}
+/* layout */
+.casca{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:calc(100vh - 57px)}
+.trilho{border-right:1px solid var(--borda);background:var(--p1);padding:16px 12px;position:sticky;top:57px;height:calc(100vh - 57px);overflow:auto}
+.prog{margin:2px 8px 14px}
+.prog .barra{height:6px;background:var(--p3);border-radius:1px;overflow:hidden;margin-top:7px}
+.prog .barra i{display:block;height:100%;background:linear-gradient(90deg,var(--verde2),var(--verde));transition:width .4s}
+.rot{font:600 11px/1 var(--fonte);letter-spacing:.12em;text-transform:uppercase;color:var(--tx3)}
+.passos{list-style:none;margin:0;padding:0}
+.passos a{display:flex;align-items:center;gap:10px;padding:8px 10px;margin:1px 0;border-radius:var(--r);color:var(--tx2);text-decoration:none;font-size:14px;border:1px solid transparent}
+.passos a:hover{background:var(--p2);color:var(--tx)}
+.passos a.on{background:var(--p2);border-color:var(--borda2);color:var(--tx)}
+.passos .n{font:600 11px/1 var(--mono);color:var(--tx3);width:18px}
+.passos .t{flex:1}
+main{padding:28px 32px 60px;min-width:0;max-width:980px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:.02em}
+h2{font-size:17px;margin:26px 0 10px;font-weight:600;letter-spacing:.03em}
+.sub{color:var(--tx2);margin:0 0 20px;max-width:70ch}
+p{margin:0 0 10px}
+.mu{color:var(--tx2)}.mu3{color:var(--tx3)}.sm{font-size:13px}
+.card{background:var(--p1);border:1px solid var(--borda);border-radius:var(--r);padding:18px 20px;margin:12px 0}
+.card.destaque{border-color:var(--verde2);background:linear-gradient(180deg,var(--verde-f),var(--p1) 70%)}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.num{font:700 30px/1.1 var(--mono);letter-spacing:-.02em}
+.lin{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-top:1px solid var(--borda)}
+.lin:first-child{border-top:0}
+.lin .led{margin-top:7px}
+.lin .c{flex:1;min-width:0}
+.lin b{display:block;font-weight:600}
+.lin .d{color:var(--tx2);font-size:13.5px}
+.passo-n{counter-reset:p;list-style:none;padding:0;margin:10px 0}
+.passo-n li{counter-increment:p;position:relative;padding:3px 0 11px 38px}
+.passo-n li::before{content:counter(p,decimal-leading-zero);position:absolute;left:0;top:2px;font:600 12px/1 var(--mono);color:var(--verde);border:1px solid var(--verde2);border-radius:2px;padding:4px 5px}
+/* controles */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 15px;border-radius:var(--r);border:1px solid var(--borda2);background:var(--p2);color:var(--tx);cursor:pointer;font-weight:600;letter-spacing:.04em;font-size:14px;text-decoration:none;transition:border-color .15s,background .15s}
+.btn:hover{border-color:var(--tx3)}
+.btn.pri{background:var(--verde);border-color:var(--verde);color:#0b1a0f}
+.btn.pri:hover{background:#4ff06f}
+.btn.sm{padding:6px 10px;font-size:13px}
+.btn.fant{background:transparent}
+.btn:disabled{opacity:.5;cursor:default}
+.btn .gira{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:g .7s linear infinite}
+@keyframes g{to{transform:rotate(360deg)}}
+.campo{display:grid;gap:6px;margin:10px 0}
+label.r{font:600 11px/1 var(--fonte);letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)}
+input[type=text],input[type=password],input[type=url],input[type=email],textarea,select{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--borda2);border-radius:var(--r);outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--verde2);box-shadow:0 0 0 3px rgba(53,227,90,.12)}
+textarea{font:13px/1.5 var(--mono);min-height:120px;resize:vertical}
+.linha{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.linha > input{flex:1;min-width:200px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.tog{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid var(--borda2);border-radius:var(--r);background:var(--p2);cursor:pointer;font-size:14px;user-select:none}
+.tog input{display:none}
+.tog .cx{width:12px;height:12px;border:1px solid var(--tx3);border-radius:1px;display:inline-block}
+.tog.on{border-color:var(--verde2);background:var(--verde-f)}
+.tog.on .cx{background:var(--verde);border-color:var(--verde);box-shadow:0 0 6px var(--verde)}
+.tog.des{opacity:.45;cursor:default}
+.tog small{color:var(--tx3);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.det{color:var(--verde);font:600 10px/1 var(--fonte);letter-spacing:.1em;text-transform:uppercase}
+.codigo{position:relative;background:#0d0f12;border:1px solid var(--borda);border-radius:var(--r);padding:12px 92px 12px 14px;font:12.5px/1.6 var(--mono);color:#cfe9d6;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:8px 0}
+.codigo .cp{position:absolute;top:8px;right:8px}
+.aviso{border:1px solid var(--borda2);border-left:3px solid var(--amar);background:var(--p1);padding:11px 14px;border-radius:var(--r);margin:12px 0;font-size:14px}
+.aviso.bad{border-left-color:var(--verm)}.aviso.ok{border-left-color:var(--verde)}.aviso.info{border-left-color:var(--azul)}
+.abas{display:flex;gap:4px;border-bottom:1px solid var(--borda);margin:14px 0 4px;flex-wrap:wrap}
+.abas button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--tx2);cursor:pointer;font-weight:600;letter-spacing:.03em}
+.abas button.on{color:var(--verde);border-bottom-color:var(--verde)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--borda)}
+th{font:600 11px/1 var(--fonte);letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)}
+td.n{text-align:right;font-family:var(--mono)}
+.barra2{display:grid;grid-template-columns:130px 1fr 52px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
+.barra2 .tr{height:8px;background:var(--p3);border-radius:1px;overflow:hidden}
+.barra2 .tr i{display:block;height:100%;background:var(--verde)}
+.barra2 .v{text-align:right;font-family:var(--mono);color:var(--tx2)}
+.tag{display:inline-block;font:500 11px/1 var(--mono);padding:3px 6px;border:1px solid var(--borda2);border-radius:2px;color:var(--tx2);margin:2px 3px 2px 0}
+.oculto{display:none!important}
+#toasts{position:fixed;right:18px;bottom:18px;display:grid;gap:8px;z-index:50}
+.toast{background:var(--p2);border:1px solid var(--borda2);border-left:3px solid var(--verde);padding:10px 14px;border-radius:var(--r);min-width:240px;max-width:380px;box-shadow:0 8px 30px rgba(0,0,0,.4);font-size:14px;animation:sobe .25s}
+.toast.bad{border-left-color:var(--verm)}
+@keyframes sobe{from{transform:translateY(8px);opacity:0}}
+.vazio{padding:28px;text-align:center;color:var(--tx3);border:1px dashed var(--borda2);border-radius:var(--r)}
+.menu-mob{display:none}
+@media (max-width:860px){
+  .casca{grid-template-columns:1fr}
+  .trilho{position:static;height:auto;border-right:0;border-bottom:1px solid var(--borda);display:none}
+  .trilho.aberto{display:block}
+  .menu-mob{display:inline-flex}
+  main{padding:20px 16px 50px}
+  .topo{padding:10px 16px}
+  .nome,.topo .ver{display:none}
+  .topo{gap:8px}
+  .barra2{grid-template-columns:96px 1fr 44px}
+}
+</style>
+</head>
+<body>
+<header class="topo">
+  <button class="btn sm fant menu-mob" id="menu" aria-label="Etapas">☰</button>
+  <a class="marca" href="#/painel">{{LOGO}}<span class="nome">Tracking <b>Lab</b></span></a>
+  <span class="sp"></span>
+  <span class="chip" id="modo">—</span>
+  <span class="chip mu3 ver" title="Versão instalada">v{{VERSAO}}</span>
+  <form method="post" action="/lab/sair" style="margin:0"><button class="btn sm fant" type="submit">Sair</button></form>
+</header>
+<div class="casca">
+  <nav class="trilho" id="trilho" aria-label="Etapas">
+    <div class="prog"><div class="linha" style="justify-content:space-between"><span class="rot">Progresso</span><span class="rot" id="progtxt">0/10</span></div><div class="barra"><i id="progbar" style="width:0"></i></div></div>
+    <ul class="passos" id="passos"></ul>
+  </nav>
+  <main id="tela"><div class="vazio">Carregando…</div></main>
+</div>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+(() => {
+const ORIGEM = '{{ORIGEM}}';
+let S = null;        // o estado (GET /lab/api/status)
+let P = null;        // os perfis (GET /lab/api/perfis)
+const cache = {};    // respostas que valem a sessao (qualidade, versao...)
+
+// ------------------------------------------------------------------ apoio
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const quando = (ms) => ms ? new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+function toast(msg, tipo = 'ok') {
+  const t = document.createElement('div'); t.className = `toast ${tipo === 'bad' ? 'bad' : ''}`; t.textContent = msg;
+  $('#toasts').appendChild(t); setTimeout(() => t.remove(), 4200);
+}
+async function api(caminho, corpo) {
+  const r = await fetch(`/lab/api/${caminho}`, corpo === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+  if (r.status === 401) { location.reload(); throw new Error('sessão expirou'); }
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, j };
+}
+async function carregar() {
+  const [a, b] = await Promise.all([api('status'), api('perfis')]);
+  S = a.j; P = b.j;
+}
+/** Botao com "girando" enquanto a acao roda; recarrega o estado e redesenha. */
+function acao(sel, fn, { recarregar = true } = {}) {
+  const b = typeof sel === 'string' ? $(sel) : sel;
+  if (!b) return;
+  b.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (b.disabled) return;
+    const antes = b.innerHTML; b.disabled = true; b.innerHTML = `<span class="gira"></span>${antes}`;
+    try { await fn(); if (recarregar) { await carregar(); desenhar(); } }
+    catch (err) { toast(err.message || 'Algo deu errado', 'bad'); }
+    finally { if (document.body.contains(b)) { b.disabled = false; b.innerHTML = antes; } }
+  });
+}
+function copiaveis(raiz = document) {
+  raiz.querySelectorAll('.codigo').forEach((c) => {
+    if (c.querySelector('.cp')) return;
+    const b = document.createElement('button'); b.className = 'btn sm cp'; b.type = 'button'; b.textContent = 'Copiar';
+    b.onclick = async () => { try { await navigator.clipboard.writeText(c.dataset.txt ?? c.textContent.replace(/Copiar$/, '')); b.textContent = 'Copiado ✓'; setTimeout(() => (b.textContent = 'Copiar'), 1500); } catch { toast('Não consegui copiar. Selecione o texto.', 'bad'); } };
+    c.appendChild(b);
+  });
+}
+const codigo = (txt) => `<div class="codigo" data-txt="${esc(txt)}">${esc(txt)}</div>`;
+const lin = (led, titulo, detalhe = '', extra = '') => `<div class="lin"><span class="led ${led}"></span><div class="c"><b>${titulo}</b>${detalhe ? `<span class="d">${detalhe}</span>` : ''}</div>${extra}</div>`;
+const tog = (nome, valor, rotulo, on, { des = false, nota = '', det = false } = {}) =>
+  `<label class="tog ${on ? 'on' : ''} ${des ? 'des' : ''}"><input type="checkbox" name="${nome}" value="${esc(valor)}" ${on ? 'checked' : ''} ${des ? 'disabled' : ''}><span class="cx"></span>${esc(rotulo)}${det ? ' <span class="det">detectado</span>' : ''}${nota ? ` <small>${esc(nota)}</small>` : ''}</label>`;
+function ligarToggles(raiz) {
+  raiz.querySelectorAll('.tog input').forEach((i) => i.addEventListener('change', () => i.closest('.tog').classList.toggle('on', i.checked)));
+}
+const seg = (nome) => (S.segredos || []).find((s) => s.nome === nome);
+const cfg = () => S.config || {};
+const conf = (k) => Boolean(cfg().confirmacoes?.[k]);
+const nomeCk = (id) => (P?.prontos || []).find((p) => p.id === id)?.nome || (id === 'outro' ? 'Outro checkout' : id);
+const usados = () => cfg().checkouts || [];
+
+// ------------------------------------------------------------------ etapas
+const ETAPAS = [
+  { id: 'plataformas', t: 'Suas plataformas', st: () => (S.deteccao && cfg().pixels?.length && usados().length ? 'ok' : S.deteccao || cfg().pixels?.length ? 'meio' : '') },
+  { id: 'chave', t: 'Chave do Meta', st: () => (seg('meta_token') ? 'ok' : '') },
+  { id: 'pagina', t: 'Página de vendas', st: () => (S.deteccao?.script || S.visitas24h?.n ? 'ok' : S.deteccao ? 'meio' : '') },
+  { id: 'checkout', t: 'Checkout', st: () => { const u = usados(); if (!u.length) return ''; const comToken = u.filter((id) => seg(`${id}_token`)); if (comToken.length === u.length && S.ultimoWebhook) return 'ok'; return comToken.length ? 'meio' : ''; } },
+  { id: 'duplicacao', t: 'Anti-duplicação', st: () => (S.deteccao?.compraNoNavegador ? 'bad' : conf('dup_checkout') && (!ferramentasRisco().length || conf('dup_ferramentas')) ? 'ok' : '') },
+  { id: 'teste', t: 'Teste com controle', st: () => (S.ultimoTeste ? (S.ultimoTeste.ok ? 'ok' : 'bad') : '') },
+  { id: 'ligar', t: 'Ligar de verdade', st: () => (!cfg().codigo_teste && S.ultimoTeste?.ok ? 'ok' : '') },
+  { id: 'resultados', t: 'Resultados', st: () => ((S.envios24h || []).some((e) => e.status === 'enviado' && !e.teste) ? 'ok' : '') },
+  { id: 'privacidade', t: 'Privacidade', st: () => (conf('privacidade') ? 'ok' : '') },
+  { id: 'reembolso', t: 'Reembolso no Meta', opc: true, st: () => (conf('reembolso') ? 'ok' : 'opc') },
+  { id: 'atualizacoes', t: 'Atualizações', st: () => (conf('rotina') && cfg().repositorio ? 'ok' : cfg().repositorio ? 'meio' : '') },
+];
+const ferramentasRisco = () => (S.deteccao?.ferramentas || []).filter((f) => f.id === 'utmify' || f.id === 'metawp');
+
+function desenharTrilho(atual) {
+  const obrig = ETAPAS.filter((e) => !e.opc);
+  const feitas = obrig.filter((e) => e.st() === 'ok').length;
+  $('#progtxt').textContent = `${feitas}/${obrig.length}`;
+  $('#progbar').style.width = `${Math.round((feitas / obrig.length) * 100)}%`;
+  $('#passos').innerHTML = `<li><a href="#/painel" class="${atual === 'painel' ? 'on' : ''}"><span class="n">00</span><span class="t">Painel</span></a></li>`
+    + ETAPAS.map((e, i) => `<li><a href="#/${e.id}" class="${atual === e.id ? 'on' : ''}"><span class="n">${String(i + 1).padStart(2, '0')}</span><span class="t">${e.t}</span><span class="led ${e.st()}"></span></a></li>`).join('');
+  const m = $('#modo');
+  if (cfg().codigo_teste) { m.className = 'chip amar'; m.innerHTML = '<span class="led meio"></span>Modo teste'; }
+  else if (S.ultimoTeste?.ok) { m.className = 'chip verde'; m.innerHTML = '<span class="led ok"></span>Valendo'; }
+  else { m.className = 'chip'; m.innerHTML = '<span class="led"></span>Configurando'; }
+}
+const proxima = () => ETAPAS.find((e) => !e.opc && e.st() !== 'ok');
+const rodape = (id) => {
+  const i = ETAPAS.findIndex((e) => e.id === id);
+  const prox = ETAPAS[i + 1];
+  return `<div class="linha" style="margin-top:26px;justify-content:space-between">${i > 0 ? `<a class="btn fant" href="#/${ETAPAS[i - 1].id}">← ${ETAPAS[i - 1].t}</a>` : '<span></span>'}${prox ? `<a class="btn" href="#/${prox.id}">${prox.t} →</a>` : ''}</div>`;
+};
+
+// ------------------------------------------------------------------ telas
+const TELAS = {};
+
+TELAS.painel = () => {
+  const p = proxima();
+  const tot = (ev, st) => (S.envios24h || []).filter((e) => e.evento === ev && (!st || e.status === st) && !e.teste).reduce((s, e) => s + e.n, 0);
+  return `<h1>Painel</h1><p class="sub">Tudo do seu rastreamento num lugar. Siga as etapas: cada luz verde é um passo certo.</p>
+  ${p ? `<div class="card destaque"><span class="rot">Próximo passo</span><h2 style="margin:6px 0 8px">${p.t}</h2><a class="btn pri" href="#/${p.id}">Continuar →</a></div>`
+      : '<div class="card destaque"><span class="rot">Tudo pronto</span><h2 style="margin:6px 0 8px">Seu rastreamento está valendo</h2><a class="btn" href="#/resultados">Ver resultados →</a></div>'}
+  ${(S.alertas || []).map((a) => `<div class="aviso bad"><b>${esc(textoAlerta(a.tipo))}</b> <span class="mu sm">· ${quando(a.quando)}</span></div>`).join('')}
+  <div class="grade">
+    <div class="card"><span class="rot">Compras aceitas · 24 h</span><div class="num">${tot('Purchase', 'enviado')}</div><span class="mu sm">com problema: ${tot('Purchase') - tot('Purchase', 'enviado')}</span></div>
+    <div class="card"><span class="rot">Visitas · 24 h</span><div class="num">${S.visitas24h?.n || 0}</div><span class="mu sm">com clique de anúncio: ${S.visitas24h?.fbc || 0}</span></div>
+    <div class="card"><span class="rot">Último aviso de venda</span><div class="num" style="font-size:20px;margin-top:6px">${S.ultimoWebhook ? quando(S.ultimoWebhook.quando) : '—'}</div><span class="mu sm">${S.ultimoWebhook ? esc(nomeCk(S.ultimoWebhook.checkout)) + ' · ' + esc(S.ultimoWebhook.tipo || '') : 'nenhum ainda'}</span></div>
+  </div>
+  <h2>Etapas</h2><div class="card">${ETAPAS.map((e, i) => lin(e.st(), `<a href="#/${e.id}" style="color:inherit;text-decoration:none">${String(i + 1).padStart(2, '0')} · ${e.t}</a>`, e.opc ? 'opcional' : '')).join('')}</div>`;
+};
+
+function textoAlerta(t) {
+  return ({ chave_invalida: 'A chave do Meta parou de funcionar — gere outra na etapa Chave do Meta', webhook_sem_token: 'Chegou um aviso de venda, mas falta o token do checkout', webhook_token_errado: 'Chegou um aviso de venda com o token errado' })[t] || t;
+}
+
+TELAS.plataformas = () => {
+  const d = S.deteccao;
+  const pixelsAchados = d?.pixels || [];
+  const pixels = [...new Set([...(cfg().pixels || []), ...pixelsAchados])];
+  const detCk = new Set((d?.checkouts || []).map((c) => c.id));
+  const prontos = (P?.prontos || []);
+  return `<h1>Suas plataformas</h1><p class="sub">Diga o endereço da sua página de vendas. Nós lemos a página e descobrimos o que você usa — daí em diante, só aparecem os passos das suas plataformas.</p>
+  <div class="card"><div class="campo"><label class="r" for="url">Página de vendas</label><div class="linha"><input type="url" id="url" placeholder="https://suapagina.com.br" value="${esc(cfg().dominio || '')}"><button class="btn pri" id="detectar">${d ? 'Detectar de novo' : 'Detectar'}</button></div></div>
+  ${d ? `<p class="mu sm">Lida em ${quando(d.quando)}${d.ok ? '' : ` · <span style="color:var(--verm)">a página respondeu ${esc(d.status || d.erro || '')}</span>`}</p>` : ''}</div>
+  ${d ? `
+  <h2>Onde a página está feita</h2>
+  <div class="chips">${(d.sites || []).length ? d.sites.map((s) => `<span class="chip verde">${esc(s.nome)}</span>`).join('') : '<span class="chip">não reconhecido — vale o caminho "HTML"</span>'}</div>
+  <h2>Pixels encontrados — quais suas campanhas usam?</h2>
+  <div class="chips" id="pxs">${pixels.length ? pixels.map((x) => tog('px', x, x, (cfg().pixels || []).includes(x), { det: pixelsAchados.includes(x) })).join('') : '<span class="mu">Nenhum pixel na página.</span>'}</div>
+  <div class="linha"><input type="text" id="pxnovo" placeholder="Ou digite o ID do pixel (conjunto de dados)" inputmode="numeric"><button class="btn sm" id="pxadd">Adicionar</button></div>
+  <p class="mu sm">Não sabe qual? No Gerenciador de Anúncios, abra um conjunto de anúncios → seção <b>Conversão</b> → "Conjunto de dados".</p>
+  <h2>Seu checkout</h2>
+  <div class="chips" id="cks">${prontos.map((p) => tog('ck', p.id, p.nome, usados().includes(p.id), { det: detCk.has(p.id), nota: p.nivel === 'confirmado' ? '' : 'novo' })).join('')}${tog('ck', 'outro', 'Outro checkout', usados().includes('outro'))}</div>
+  <p class="mu sm">Também funcionam pelo "Outro checkout": ${esc((P?.em_breve || []).join(', '))}.</p>
+  ${(d.ferramentas || []).length ? `<h2>Outras ferramentas na página</h2><div class="card">${d.ferramentas.map((f) => lin(f.id === 'utmify' || f.id === 'metawp' ? 'meio' : 'ok', esc(f.nome), esc(f.nota))).join('')}</div>` : ''}
+  <div class="linha" style="margin-top:16px"><button class="btn pri" id="salvar">Salvar minhas plataformas</button></div>` : ''}
+  ${rodape('plataformas')}`;
+};
+TELAS.plataformas.ligar = (raiz) => {
+  ligarToggles(raiz);
+  acao('#detectar', async () => {
+    const url = $('#url').value.trim();
+    if (!url) throw new Error('Digite o endereço da página');
+    const r = await api('detectar', { url });
+    if (!r.ok && !r.j.quando) throw new Error(r.j.erro || 'Não consegui abrir a página');
+    if (!cfg().dominio) await api('config', { dominio: url });
+    toast('Página lida');
+  });
+  acao('#pxadd', async () => {
+    const v = $('#pxnovo').value.replace(/\D/g, '');
+    if (v.length < 6) throw new Error('O ID do pixel tem só números');
+    const r = await api('config', { pixels: [...new Set([...(cfg().pixels || []), v])] });
+    if (!r.ok) throw new Error(r.j.erro);
+    toast('Pixel adicionado');
+  });
+  acao('#salvar', async () => {
+    const pixels = [...raiz.querySelectorAll('input[name=px]:checked')].map((i) => i.value);
+    const checkouts = [...raiz.querySelectorAll('input[name=ck]:checked')].map((i) => i.value);
+    if (!pixels.length) throw new Error('Escolha o pixel das suas campanhas');
+    if (!checkouts.length) throw new Error('Escolha o seu checkout');
+    const r = await api('config', { pixels, checkouts, dominio: $('#url').value.trim() || cfg().dominio });
+    if (!r.ok) throw new Error(r.j.erro);
+    toast('Plataformas salvas'); location.hash = '#/chave';
+  });
+};
+
+TELAS.chave = () => {
+  const s = seg('meta_token');
+  const px = cfg().pixels || [];
+  return `<h1>Chave do Meta</h1><p class="sub">É o que deixa o Tracking Lab mandar suas vendas para o pixel. Ela só envia eventos — não mexe nos seus anúncios nem no seu dinheiro.</p>
+  ${!px.length ? '<div class="aviso">Escolha o pixel primeiro, em <a href="#/plataformas">Suas plataformas</a>.</div>' : ''}
+  ${s ? `<div class="card destaque">${lin('ok', 'Chave guardada', `${esc(s.dica)} · conferida no Meta em ${quando(s.quando)}`)}</div>` : ''}
+  <div class="card"><ol class="passo-n">
+    <li>Abra o <a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener">Gerenciador de Eventos</a> e clique no pixel <b>${esc(px.join(', ') || '…')}</b>.</li>
+    <li>Vá em <b>Configurações</b> → role até <b>API de Conversões</b> → <b>Gerar token de acesso</b>.</li>
+    <li>Copie e cole aqui — ou cole no chat do seu assistente de IA, que ele salva para você.</li>
+  </ol>
+  <div class="campo"><label class="r" for="tok">${s ? 'Trocar a chave' : 'Chave (token de acesso)'}</label><div class="linha"><input type="password" id="tok" placeholder="EAA…" autocomplete="off" ${px.length ? '' : 'disabled'}><button class="btn pri" id="conf" ${px.length ? '' : 'disabled'}>Conferir no Meta e guardar</button></div></div>
+  <div id="res"></div></div>
+  <div class="aviso info"><b>Apareceu "você não pode gerar tokens… violou nossos Termos"?</b> É um bloqueio do Meta na sua BM, para todos os pixels dela. O caminho é pedir revisão em <a href="https://developers.facebook.com/appeal" target="_blank" rel="noopener">developers.facebook.com/appeal</a> ou usar um pixel numa conta saudável. Não gere a chave por outra BM com o pixel compartilhado: o Meta pode estender o bloqueio.</div>
+  ${rodape('chave')}`;
+};
+TELAS.chave.ligar = () => acao('#conf', async () => {
+  const valor = $('#tok').value.trim();
+  if (!valor) throw new Error('Cole a chave');
+  const r = await api('segredo', { nome: 'meta_token', valor });
+  if (!r.ok) {
+    const m = { chave_invalida: 'O Meta recusou esta chave para o pixel. Confira se gerou no pixel certo.', rede: 'Não consegui falar com o Meta agora. Tente de novo.' }[r.j.motivo] || r.j.erro || r.j.detalhe || 'Chave recusada';
+    $('#res').innerHTML = `<div class="aviso bad"><b>${esc(m)}</b>${r.j.pixel ? `<br><span class="mu sm">Pixel ${esc(r.j.pixel)} · resposta do Meta: ${esc(r.j.detalhe || '')}</span>` : ''}</div>`;
+    throw new Error(m);
+  }
+  toast('Chave aceita pelo Meta e guardada');
+});
+
+const RECEITAS = {
+  wordpress: { nome: 'WordPress', passos: ['No painel do WordPress, instale (se não tiver) o plugin <b>Header Footer Code Manager</b>.', 'Vá em <b>HFCM → Add New</b>. Nome: <i>Tracking Lab</i> · Site Display: <b>Site Wide</b> · Location: <b>Header</b>.', 'Cole a linha abaixo e salve.', 'Se usa cache (LiteSpeed, WP Rocket…): <b>limpe o cache</b>.'] },
+  elementor: { nome: 'Elementor', passos: ['Com Elementor Pro: <b>Elementor → Código personalizado → Adicionar novo</b>, local <b>&lt;head&gt;</b>, todas as páginas.', 'Sem o Pro: use o plugin <b>Header Footer Code Manager</b> (aba WordPress).', 'Cole a linha abaixo, publique e limpe o cache.'] },
+  gtm: { nome: 'Google Tag Manager', passos: ['No GTM: <b>Tags → Nova → HTML personalizado</b>.', 'Cole a linha abaixo. Acionador: <b>All Pages</b>.', '<b>Enviar → Publicar</b>.'] },
+  shopify: { nome: 'Shopify', passos: ['<b>Loja virtual → Temas → … → Editar código</b>.', 'Abra <b>theme.liquid</b> e cole a linha logo antes de <code>&lt;/head&gt;</code>.', 'Salve.'] },
+  wix: { nome: 'Wix', passos: ['<b>Configurações → Código personalizado → Adicionar código</b>.', 'Cole a linha, escolha <b>Todas as páginas</b> e <b>Head</b>.', 'Aplique e publique o site.'] },
+  webflow: { nome: 'Webflow', passos: ['<b>Project settings → Custom code → Head code</b>.', 'Cole a linha e publique.'] },
+  framer: { nome: 'Framer', passos: ['<b>Site settings → General → Custom code → End of &lt;head&gt;</b>.', 'Cole a linha e publique.'] },
+  html: { nome: 'HTML / outro', passos: ['Cole a linha dentro do <code>&lt;head&gt;</code> de todas as páginas de vendas.', 'Publique e limpe o cache, se houver.'] },
+};
+TELAS.pagina = () => {
+  const d = S.deteccao;
+  const sites = (d?.sites || []).map((s) => s.id).filter((id) => RECEITAS[id]);
+  const abas = [...new Set([...sites, 'wordpress', 'gtm', 'html'])];
+  // "<\/script>" escapado: o fechamento literal encerraria o proprio script desta pagina.
+  const linha = `<script src="${ORIGEM}/v.js" async><\/script>`;
+  const px = (cfg().pixels || [])[0];
+  const pxNaPagina = px && (d?.pixels || []).includes(px);
+  return `<h1>Página de vendas</h1><p class="sub">Uma linha só na sua página. É ela que liga cada venda ao clique do anúncio — o que mais sobe a nota do Meta.</p>
+  <div class="card"><span class="rot">A linha</span>${codigo(linha)}
+  <div class="abas" id="abas">${abas.map((a, i) => `<button data-a="${a}" class="${i === 0 ? 'on' : ''}">${RECEITAS[a].nome}${sites.includes(a) ? ' ✓' : ''}</button>`).join('')}</div>
+  ${abas.map((a, i) => `<div data-r="${a}" class="${i === 0 ? '' : 'oculto'}"><ol class="passo-n">${RECEITAS[a].passos.map((p) => `<li>${p}</li>`).join('')}</ol></div>`).join('')}</div>
+  ${px ? `<div class="card"><span class="rot">Recomendado · o pixel das campanhas na página</span><p class="mu sm" style="margin-top:8px">${pxNaPagina ? 'O pixel já está na página ✓' : 'Não achamos o pixel na página. Funciona sem, mas a nota sobe com ele. Cole no rodapé, do mesmo jeito:'}</p>${pxNaPagina ? '' : codigo(`<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${px}');fbq('trackSingle','${px}','PageView');<\/script>`)}</div>` : ''}
+  <div class="aviso bad"><b>Não cole</b> nenhum <code>fbq('track','Purchase')</code> na página. A Compra sai só do servidor.</div>
+  <h2>Conferência</h2><div class="card">
+    ${lin(d?.script ? 'ok' : d ? 'bad' : '', 'A linha está na página', d ? (d.script ? `encontrada em ${quando(d.quando)}` : 'ainda não encontrada — salve, limpe o cache e confira de novo') : 'aperte Conferir')}
+    ${lin(S.visitas24h?.n ? 'ok' : '', 'Visitas chegando', S.visitas24h?.n ? `${S.visitas24h.n} nas últimas 24 h · ${S.visitas24h.fbc || 0} com clique de anúncio · última ${quando(S.visitas24h.ultima)}` : 'abra a sua página uma vez e confira de novo')}
+    ${lin(d?.compraNoNavegador ? 'bad' : d ? 'ok' : '', 'Sem Compra no navegador', d?.compraNoNavegador ? 'achamos um fbq(…Purchase) na página: tire-o' : '')}
+    <div class="linha" style="margin-top:10px"><button class="btn pri" id="conferir">Conferir</button></div>
+  </div>
+  <h2>Prefere que a sua IA faça?</h2><p class="mu sm">Se o seu assistente tem acesso ao navegador ou ao seu site, cole isto nele:</p>
+  ${codigo(`Etapa "Página de vendas" do Tracking Lab no site ${cfg().dominio || '(minha página)'}${sites.length ? ` (${sites.map((s) => RECEITAS[s].nome).join(', ')})` : ''}.\nColoque no <head> de todas as páginas esta linha:\n${linha}\nMostre o que vai fazer e espere eu dizer "pode". Não mexa em mais nada. Depois limpe o cache e me peça para apertar "Conferir" no Hub.`)}
+  ${rodape('pagina')}`;
+};
+TELAS.pagina.ligar = (raiz) => {
+  raiz.querySelectorAll('#abas button').forEach((b) => b.onclick = () => {
+    raiz.querySelectorAll('#abas button').forEach((x) => x.classList.toggle('on', x === b));
+    raiz.querySelectorAll('[data-r]').forEach((r) => r.classList.toggle('oculto', r.dataset.r !== b.dataset.a));
+  });
+  acao('#conferir', async () => {
+    const r = await api('detectar', {});
+    if (!r.j.quando) throw new Error(r.j.erro || 'Não consegui abrir a página');
+    toast(r.j.script ? 'Linha encontrada ✓' : 'A linha ainda não aparece na página', r.j.script ? 'ok' : 'bad');
+  });
+};
+
+const TOKEN_DE = {
+  kirvano: { onde: 'Na Kirvano: <b>Integrações → Webhooks → Novo</b>.', token: 'O <b>token</b> que a Kirvano mostra no webhook' },
+  kiwify: { onde: 'Na Kiwify: <b>Apps → Webhooks → Criar webhook</b>.', token: 'O <b>token</b> do webhook (a Kiwify assina cada aviso com ele)' },
+  hotmart: { onde: 'Na Hotmart: <b>Ferramentas → Webhook (API e notificações) → Cadastrar webhook</b>, versão 2.0.', token: 'O <b>hottok</b> que aparece na tela do webhook' },
+  eduzz: { onde: 'Na Eduzz: <b>Configurações → Webhooks</b> (MyEduzz) e cadastre a URL.', token: 'A <b>chave de origem</b> (originSecret)' },
+  cakto: { onde: 'Na Cakto: <b>Integrações → Webhooks → Adicionar</b>.', token: 'O <b>secret</b> do webhook' },
+  padrao: { onde: 'Na plataforma (ou no Zapier/Make/n8n): um webhook para a URL abaixo, no <b>Formato padrão</b> (orderId, status, customer, products, trackingParameters).', token: 'Um segredo criado aqui (vai na URL)', gerar: true },
+  outro: { onde: 'Na plataforma: um webhook para a URL abaixo.', token: 'Um segredo criado aqui (vai na URL)', gerar: true },
+};
+const geradoAgora = {};
+function novoSegredo() { const a = new Uint8Array(18); crypto.getRandomValues(a); return [...a].map((b) => b.toString(16).padStart(2, '0')).join(''); }
+
+TELAS.checkout = () => {
+  const u = usados();
+  if (!u.length) return `<h1>Checkout</h1><div class="aviso">Escolha o seu checkout em <a href="#/plataformas">Suas plataformas</a>.</div>${rodape('checkout')}`;
+  return `<h1>Checkout</h1><p class="sub">O checkout avisa o Tracking Lab a cada venda. Cadastre a URL e cole o token: só avisos com o token certo são aceitos.</p>
+  ${u.map((id) => cardCheckout(id)).join('')}${rodape('checkout')}`;
+};
+function cardCheckout(id) {
+  const info = TOKEN_DE[id] || TOKEN_DE.outro;
+  const s = seg(`${id}_token`);
+  const perfil = id === 'outro' ? P?.outro : (P?.prontos || []).find((p) => p.id === id);
+  const k = geradoAgora[id];
+  const url = info.gerar ? `${ORIGEM}/w/${id}${k ? `?k=${k}` : '?k=SEU_SEGREDO'}` : `${ORIGEM}/w/${id}`;
+  const wh = S.ultimoWebhook?.checkout === id ? S.ultimoWebhook : null;
+  const nivel = perfil?.nivel === 'confirmado' ? '<span class="chip verde">confirmado</span>' : perfil?.nivel === 'documentado' ? '<span class="chip">novo · confirmamos na 1ª venda</span>' : '';
+  return `<div class="card" data-ck="${id}"><div class="linha" style="justify-content:space-between"><h2 style="margin:0">${esc(nomeCk(id))}</h2>${nivel}</div>
+    ${id === 'outro' && !P?.outro ? montarOutro() : `
+    <ol class="passo-n"><li>${info.onde}</li><li>URL do webhook:${codigo(url)}${info.gerar && !k ? '<span class="mu sm">Crie o segredo abaixo para a URL completa.</span>' : ''}</li>
+    <li>Marque os eventos: <b>venda aprovada</b>, <b>reembolso</b> e <b>chargeback</b>.</li>
+    <li>${info.token}:</li></ol>
+    ${info.gerar
+      ? `<div class="linha"><button class="btn ${s ? '' : 'pri'}" data-gerar="${id}">${s ? 'Gerar um segredo novo' : 'Criar o segredo'}</button>${s ? `<span class="mu sm">guardado: ${esc(s.dica)}${k ? '' : ' · a URL completa só aparece quando o segredo é criado'}</span>` : ''}</div>`
+      : `<div class="linha"><input type="password" placeholder="cole aqui" data-tok="${id}" autocomplete="off"><button class="btn ${s ? '' : 'pri'}" data-salvar="${id}">${s ? 'Trocar' : 'Guardar'}</button></div>${s ? `<p class="mu sm" style="margin-top:6px">Guardado: ${esc(s.dica)}</p>` : ''}`}
+    <div style="margin-top:12px">${lin(s ? 'ok' : '', 'Token', s ? 'guardado' : 'falta')}${lin(wh ? 'ok' : '', 'Primeiro aviso de venda', wh ? `${quando(wh.quando)} · ${esc(wh.tipo || wh.evento || '')}` : 'quando a próxima venda (ou o "testar webhook" do checkout) chegar, aparece aqui')}</div>
+    ${id === 'outro' ? '<p style="margin-top:8px"><button class="btn sm fant" id="refazer">Refazer o perfil deste checkout</button></p>' : ''}`}
+  </div>`;
+}
+function montarOutro() {
+  const s = seg('outro_token'); const k = geradoAgora.outro;
+  return `<p class="mu">Para um checkout sem perfil pronto, montamos o perfil a partir de <b>um aviso de venda de exemplo</b>.</p>
+  <ol class="passo-n">
+    <li>${s ? `Segredo criado (${esc(s.dica)}).` : 'Crie o segredo:'} <button class="btn sm" data-gerar="outro">${s ? 'Gerar outro' : 'Criar o segredo'}</button></li>
+    <li>No checkout, cadastre esta URL e mande um aviso de teste (ou espere uma venda):${codigo(`${ORIGEM}/w/outro?k=${k || 'SEU_SEGREDO'}`)}<span class="mu sm">Enquanto o perfil não existe, guardamos só o último aviso, por 24 h, e nada vai ao Meta.</span></li>
+    <li>Ou cole um exemplo aqui:<textarea id="exemplo" placeholder='{"status":"paid", ...}'></textarea></li>
+  </ol>
+  <div class="linha"><button class="btn pri" id="analisar">Analisar o exemplo</button></div>
+  <div id="analise"></div>`;
+}
+TELAS.checkout.ligar = (raiz) => {
+  raiz.querySelectorAll('[data-salvar]').forEach((b) => acao(b, async () => {
+    const id = b.dataset.salvar; const v = raiz.querySelector(`[data-tok="${id}"]`).value.trim();
+    if (!v) throw new Error('Cole o token');
+    const r = await api('segredo', { nome: `${id}_token`, valor: v });
+    if (!r.ok) throw new Error(r.j.erro || 'Não guardei');
+    toast('Token guardado');
+  }));
+  raiz.querySelectorAll('[data-gerar]').forEach((b) => acao(b, async () => {
+    const id = b.dataset.gerar; const v = novoSegredo();
+    const r = await api('segredo', { nome: `${id}_token`, valor: v });
+    if (!r.ok) throw new Error(r.j.erro || 'Não guardei');
+    geradoAgora[id] = v; toast('Segredo criado: copie a URL completa agora');
+  }));
+  acao('#refazer', async () => { await api('perfil-outro', { perfil: null }); toast('Perfil apagado: monte de novo'); });
+  acao('#analisar', async () => {
+    const txt = $('#exemplo')?.value.trim();
+    let exemplo;
+    if (txt) { try { exemplo = JSON.parse(txt); } catch { exemplo = txt; } }
+    const r = await api('analisar-exemplo', exemplo ? { exemplo } : {});
+    if (!r.ok) throw new Error(r.j.erro || 'Não entendi o exemplo');
+    const sug = { nome: 'Meu checkout', ...r.j.sugestao, autenticacao: { tipo: 'cabecalho', query: ['k'] } };
+    $('#analise').innerHTML = `<h2>Campos que chegaram ${r.j.capturado ? `<span class="chip verde">capturado ${quando(r.j.capturado)}</span>` : ''}</h2>
+      <div class="card" style="max-height:260px;overflow:auto"><table><tr><th>Campo</th><th>Amostra</th></tr>${r.j.campos.map((c) => `<tr><td><code>${esc(c.caminho)}</code></td><td class="mu">${esc(c.amostra)}</td></tr>`).join('')}</table></div>
+      <h2>Perfil sugerido</h2><p class="mu sm">Confira, principalmente <b>eventos.aprovada</b>: só o valor de venda <b>paga</b>. O seu assistente de IA pode ajustar este texto para você.</p>
+      <textarea id="perfil" style="min-height:260px">${esc(JSON.stringify(sug, null, 2))}</textarea>
+      <div class="linha"><button class="btn" id="previa">Ver como a venda seria lida</button><button class="btn pri" id="salvarPerfil">Salvar o perfil</button></div><div id="leitura"></div>`;
+    $('#analise').dataset.exemplo = txt || '';
+    acao('#previa', async () => {
+      const perfil = JSON.parse($('#perfil').value);
+      const r2 = await api('analisar-exemplo', { ...(exemplo ? { exemplo } : {}), perfil });
+      if (!r2.ok) throw new Error(r2.j.erro_perfil || r2.j.erro || 'Perfil com problema');
+      const l = r2.j.leitura;
+      $('#leitura').innerHTML = `<div class="card">${lin(l.tipo === 'aprovada' ? 'ok' : 'meio', `Tipo: ${esc(l.tipo)}`, `evento "${esc(l.evento)}"`)}${lin(l.pedido ? 'ok' : 'bad', 'Pedido', esc(l.pedido || 'não achado'))}${lin(l.cliente.email ? 'ok' : 'bad', 'E-mail', esc(l.cliente.email || 'não achado'))}${lin(l.valor !== null ? 'ok' : 'meio', 'Valor', esc(l.valor ?? '—'))}${lin(l.src ? 'ok' : 'meio', 'Id da visita (src)', esc(l.src || 'não veio — a venda vai sem a visita'))}${lin(l.ip ? 'ok' : '', 'IP', l.ip ? 'veio' : 'não veio')}</div>`;
+    }, { recarregar: false });
+    acao('#salvarPerfil', async () => {
+      const perfil = JSON.parse($('#perfil').value);
+      const r3 = await api('perfil-outro', { perfil });
+      if (!r3.ok) throw new Error(r3.j.erro || 'Perfil recusado');
+      toast('Perfil salvo: o checkout está pronto');
+    });
+  }, { recarregar: false });
+};
+
+TELAS.duplicacao = () => {
+  const d = S.deteccao; const px = (cfg().pixels || []).join(', ') || '(o seu pixel)';
+  const risco = ferramentasRisco();
+  return `<h1>Anti-duplicação</h1><p class="sub">A regra: <b>no pixel ${esc(px)}, só o Tracking Lab manda a Compra.</b> Se duas fontes mandarem, cada venda conta 2 vezes — o ROAS parece o dobro e o algoritmo aprende errado.</p>
+  <div class="card">
+    ${lin(d?.compraNoNavegador ? 'bad' : d ? 'ok' : '', 'Página sem Compra no navegador', d ? (d.compraNoNavegador ? 'achamos um fbq(…Purchase) na página: tire-o' : 'conferido na página') : 'confira a página na etapa anterior')}
+    ${usados().map((id) => lin(conf('dup_checkout') ? 'ok' : '', `${esc(nomeCk(id))}: Compra desligada nesse pixel`, `No pixel do checkout, mantenha <b>InitiateCheckout</b> e <b>AddPaymentInfo</b> e <b>desligue a Compra</b> (Purchase). Se houver opção "API de conversões"/servidor do próprio checkout, desligue também nesse pixel.`)).join('')}
+    ${risco.map((f) => lin(conf('dup_ferramentas') ? 'ok' : 'meio', esc(f.nome), f.id === 'utmify' ? 'Na UTMify, <b>remova este pixel</b> da integração de pixel (os relatórios dela continuam).' : 'No plugin, garanta que ele <b>não</b> manda Compra para este pixel.')).join('')}
+  </div>
+  <div class="chips">${tog('c', 'dup_checkout', 'Desliguei a Compra no checkout', conf('dup_checkout'))}${risco.length ? tog('c', 'dup_ferramentas', `Resolvi: ${risco.map((f) => f.nome).join(' e ')}`, conf('dup_ferramentas')) : ''}</div>
+  <div class="aviso info">Sem como desligar? Use um <b>pixel novo</b> só para o Tracking Lab (e faça as campanhas otimizarem por ele).</div>
+  ${rodape('duplicacao')}`;
+};
+function ligarConfirmacoes(raiz) {
+  raiz.querySelectorAll('input[name=c]').forEach((i) => i.addEventListener('change', async () => {
+    i.closest('.tog').classList.toggle('on', i.checked);
+    const r = await api('confirmar', { chave: i.value, valor: i.checked });
+    if (!r.ok) { toast('Não salvei', 'bad'); return; }
+    await carregar(); desenharTrilho(rotaAtual());
+  }));
+}
+TELAS.duplicacao.ligar = ligarConfirmacoes;
+
+TELAS.teste = () => {
+  const t = S.ultimoTeste;
+  return `<h1>Teste com controle</h1><p class="sub">Mandamos duas compras de mentira: uma que o Meta deve <b>aceitar</b> e outra (com data de 8 dias atrás) que ele deve <b>recusar</b>. A recusada prova que o "aceita" é de verdade.</p>
+  <div class="card"><ol class="passo-n"><li>No Gerenciador de Eventos → seu pixel → <b>Testar eventos</b> → aba <b>Eventos do servidor</b>, copie o código <code>TEST…</code>.</li><li>Cole aqui e aperte <b>Testar</b>. Deixe a aba do Meta aberta para ver a compra chegar.</li></ol>
+  <div class="linha"><input type="text" id="cod" placeholder="TEST12345" value="${esc(cfg().codigo_teste || '')}" style="max-width:220px"><button class="btn pri" id="testar">Testar</button></div>
+  <div id="resTeste">${t ? `<p class="mu sm" style="margin-top:10px">Último teste: ${quando(t.quando)} · ${t.ok ? '<span style="color:var(--verde)">passou</span>' : '<span style="color:var(--verm)">não passou</span>'}</p>` : ''}</div></div>
+  <div class="aviso">Enquanto o código de teste estiver aqui, <b>todas</b> as vendas vão como teste (não contam nas campanhas). Depois do teste, siga para <b>Ligar de verdade</b>.</div>
+  ${rodape('teste')}`;
+};
+TELAS.teste.ligar = () => acao('#testar', async () => {
+  const cod = $('#cod').value.trim();
+  if (!/^TEST\w+$/.test(cod)) throw new Error('O código começa com TEST');
+  const c = await api('config', { codigo_teste: cod });
+  if (!c.ok) throw new Error(c.j.erro);
+  const r = await api('teste-controle', {});
+  if (!r.j.casos) throw new Error(r.j.erro || 'Não rodou');
+  const px = Object.keys(r.j.casos.ok);
+  setTimeout(() => {
+    const alvo = $('#resTeste'); if (!alvo) return;
+    alvo.innerHTML = `<div style="margin-top:12px">${px.map((p) => lin(r.j.casos.ok[p].status === 'enviado' ? 'ok' : 'bad', `Pixel ${esc(p)} · compra de teste`, r.j.casos.ok[p].status === 'enviado' ? 'aceita pelo Meta — procure "Purchase" em Testar eventos' : esc(r.j.casos.ok[p].resposta || r.j.casos.ok[p].status))
+      + lin(r.j.casos.deve_falhar[p].status === 'recusado' ? 'ok' : 'bad', `Pixel ${esc(p)} · controle (deve ser recusada)`, r.j.casos.deve_falhar[p].status === 'recusado' ? 'recusada pelo Meta, como esperado' : 'o Meta aceitou — algo está estranho')).join('')}</div>`;
+  }, 50);
+  toast(r.j.ok ? 'Teste passou ✓' : 'O teste não passou', r.j.ok ? 'ok' : 'bad');
+});
+
+TELAS.ligar = () => {
+  const t = S.ultimoTeste; const teste = cfg().codigo_teste;
+  return `<h1>Ligar de verdade</h1>
+  ${!teste && t?.ok ? `<div class="card destaque">${lin('ok', 'Valendo', 'As vendas estão indo para as suas campanhas.')}</div><p><button class="btn fant" id="voltar">Voltar ao modo teste</button></p>`
+    : `<p class="sub">Tira o código de teste: a partir daí, cada venda vai valendo para as suas campanhas.</p>
+  ${t?.ok ? '' : '<div class="aviso">Rode o <a href="#/teste">Teste com controle</a> antes.</div>'}
+  <button class="btn pri" id="ligarBtn" ${t?.ok ? '' : 'disabled'}>Ligar de verdade</button>`}
+  ${rodape('ligar')}`;
+};
+TELAS.ligar.ligar = () => {
+  acao('#ligarBtn', async () => { const r = await api('config', { codigo_teste: '' }); if (!r.ok) throw new Error(r.j.erro); toast('Ligado: está valendo'); });
+  acao('#voltar', async () => { location.hash = '#/teste'; }, { recarregar: false });
+};
+
+TELAS.resultados = () => `<h1>Resultados</h1><p class="sub">A nota que o Meta dá às suas vendas (de 0 a 10) e o que chegou. O Meta atualiza a nota com até ~48 h de atraso.</p>
+  <div class="linha"><button class="btn" id="atualizar">Atualizar</button><span class="mu sm">Não prometemos ROAS: medimos a qualidade do sinal.</span></div>
+  <div id="qual"><div class="vazio" style="margin-top:12px">Carregando a nota do Meta…</div></div>
+  <div id="env"></div>${rodape('resultados')}`;
+TELAS.resultados.ligar = async () => {
+  const pintar = async () => {
+    const [q, e] = await Promise.all([seg('meta_token') ? api('qualidade') : Promise.resolve({ ok: false, j: { erro: 'falta a chave do Meta' } }), api('envios?horas=168')]);
+    const alvoQ = $('#qual'); if (!alvoQ) return;
+    if (!q.ok) alvoQ.innerHTML = `<div class="aviso">${esc(q.j.erro || 'Não consegui ler a nota agora')}</div>`;
+    else alvoQ.innerHTML = Object.entries(q.j).map(([px, d]) => {
+      const evs = d.web || [];
+      if (!evs.length) return `<div class="card"><span class="rot">Pixel ${esc(px)}</span><p class="mu" style="margin-top:8px">Ainda sem nota (${esc(d.error?.message || 'o Meta precisa de algumas vendas')}).</p></div>`;
+      return evs.map((ev) => { const emq = ev.event_match_quality || {}; const chaves = emq.match_key_feedback || [];
+        return `<div class="card"><div class="linha" style="justify-content:space-between"><span class="rot">Pixel ${esc(px)} · ${esc(ev.event_name)}</span><span class="num" style="color:${(emq.composite_score || 0) >= 8 ? 'var(--verde)' : 'var(--amar)'}">${emq.composite_score ?? '—'}</span></div>
+        ${chaves.map((k) => `<div class="barra2"><span>${esc(k.identifier)}</span><span class="tr"><i style="width:${k.coverage?.percentage || 0}%"></i></span><span class="v">${k.coverage?.percentage ?? '?'}%</span></div>`).join('')}</div>`; }).join('');
+    }).join('');
+    const alvoE = $('#env'); if (!alvoE || !e.ok) return;
+    const ult = e.j.ultimos || [];
+    alvoE.innerHTML = `<h2>Últimos envios (7 dias)</h2>${ult.length ? `<div class="card" style="overflow:auto"><table><tr><th>Quando</th><th>Pedido</th><th>Evento</th><th>Status</th><th>O que foi</th></tr>${ult.map((u) => `<tr><td class="mu">${quando(u.quando)}</td><td><code>${esc(u.pedido)}</code></td><td>${esc(u.evento)}${u.teste ? ' <span class="chip amar">teste</span>' : ''}</td><td><span class="led ${u.status === 'enviado' ? 'ok' : u.status === 'recusado' || u.status === 'chave_invalida' ? 'bad' : 'meio'}"></span> ${esc(u.status)}</td><td>${String(u.campos || '').split(',').filter(Boolean).map((c) => `<span class="tag">${esc(c)}</span>`).join('')}</td></tr>`).join('')}</table></div>` : '<div class="vazio">Nenhuma venda ainda.</div>'}`;
+  };
+  acao('#atualizar', pintar, { recarregar: false });
+  pintar();
+};
+
+TELAS.privacidade = () => `<h1>Privacidade</h1><p class="sub">A LGPD pede uma política de privacidade na sua página dizendo o que você coleta e que envia ao Meta. Preencha e copie o texto pronto.</p>
+  <div class="card"><div class="grade">
+    <div class="campo"><label class="r" for="pnome">Nome ou razão social</label><input type="text" id="pnome"></div>
+    <div class="campo"><label class="r" for="pdoc">CPF ou CNPJ</label><input type="text" id="pdoc"></div>
+    <div class="campo"><label class="r" for="pmail">E-mail para privacidade</label><input type="email" id="pmail"></div>
+  </div><button class="btn pri" id="gerar">Gerar o texto</button><div id="politica"></div></div>
+  <div class="card"><span class="rot">No WordPress</span><ol class="passo-n" style="margin-top:8px"><li><b>Páginas → Adicionar nova</b> · título "Política de Privacidade".</li><li>Bloco <b>HTML personalizado</b> → cole o texto → <b>Publicar</b>.</li><li><b>Configurações → Privacidade</b> → escolha a página.</li><li>Ponha o link no <b>rodapé</b> da página de vendas e limpe o cache.</li></ol></div>
+  <div class="chips">${tog('c', 'privacidade', 'Publiquei a política e pus o link no rodapé', conf('privacidade'))}</div>
+  <p class="mu sm">Não é parecer jurídico — vale uma revisão de advogado.</p>${rodape('privacidade')}`;
+TELAS.privacidade.ligar = (raiz) => {
+  ligarConfirmacoes(raiz);
+  acao('#gerar', async () => {
+    const nome = $('#pnome').value.trim(), doc = $('#pdoc').value.trim(), mail = $('#pmail').value.trim();
+    if (!nome || !mail) throw new Error('Preencha o nome e o e-mail');
+    const site = (cfg().dominio || '').replace(/^https?:\/\//, '').replace(/\/$/, '') || 'o nosso site';
+    const ferr = (S.deteccao?.ferramentas || []).map((f) => f.nome);
+    const cks = usados().map(nomeCk).filter((n) => n !== 'Outro checkout' && n !== 'Formato padrão (API)');
+    const forn = [...cks.map((c) => `${c} — página de pagamento e processamento da compra`), 'Meta Platforms — medição de anúncios', 'Cloudflare — servidores do sistema de medição', ...ferr.map((f) => `${f} — análise e medição`)];
+    const html = politica({ nome, doc, mail, site, forn, data: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) });
+    $('#politica').innerHTML = `<p class="mu sm" style="margin-top:14px">Pronto. Copie e cole como HTML:</p>${codigo(html)}`;
+    copiaveis($('#politica'));
+  }, { recarregar: false });
+};
+function politica({ nome, doc, mail, site, forn, data }) {
+  return `<div style="max-width:760px;margin:0 auto;line-height:1.6">
+<h1>Política de Privacidade</h1>
+<p><strong>Última atualização:</strong> ${data}.</p>
+<p>Esta política explica quais dados pessoais coletamos quando você visita <strong>${site}</strong> e compra, para que usamos, com quem compartilhamos e como exercer seus direitos (Lei nº 13.709/2018 — LGPD).</p>
+<h2>1. Quem é o responsável</h2>
+<p>O controlador é <strong>${nome}</strong>${doc ? `, inscrito(a) sob o nº <strong>${doc}</strong>` : ''}. Contato para privacidade: <strong>${mail}</strong>.</p>
+<h2>2. O que coletamos</h2>
+<ul><li><strong>Na visita:</strong> endereço IP, tipo de navegador e aparelho, páginas acessadas, data e hora, a origem da visita (anúncio ou link, como utm_source e o identificador de clique do Meta) e cookies (seção 6), incluindo um identificador de visita que levamos até a página de pagamento para ligar a visita à compra.</li>
+<li><strong>Na compra:</strong> a plataforma de pagamento nos informa nome, e-mail, telefone, endereço informado, o produto e o valor. Não recebemos dados do seu cartão.</li></ul>
+<h2>3. Para que usamos</h2>
+<ul><li><strong>Entregar o que você comprou e atender você</strong> — base legal: execução de contrato.</li>
+<li><strong>Cumprir a lei e evitar fraudes</strong> — base legal: obrigação legal e legítimo interesse.</li>
+<li><strong>Medir e melhorar nossos anúncios</strong> — informar à Meta (Facebook e Instagram) as visitas, compras e reembolsos. Base legal: legítimo interesse; você pode se opor a qualquer momento (seção 7).</li></ul>
+<h2>4. Como compartilhamos com a Meta</h2>
+<p>Quando uma compra é aprovada ou reembolsada, nosso servidor envia à Meta: e-mail, telefone, nome, cidade, estado, CEP e país <strong>convertidos em códigos irreversíveis (hash SHA-256)</strong>, além do IP, do tipo de navegador, dos identificadores de cookie do Meta, do valor e do produto. <strong>Documentos como CPF nunca são enviados.</strong> O uso pela Meta segue a política dela: <a href="https://www.facebook.com/privacy/policy">facebook.com/privacy/policy</a>.</p>
+<h2>5. Com quem mais compartilhamos</h2>
+<ul>${forn.map((f) => `<li>${f};</li>`).join('')}</ul>
+<p>Alguns fornecedores guardam dados fora do Brasil, seguindo as regras da LGPD. <strong>Não vendemos seus dados.</strong></p>
+<h2>6. Cookies e prazos</h2>
+<p>Usamos cookies do Meta Pixel (_fbp, _fbc) e um identificador de visita para medir anúncios. Os dados técnicos da visita (IP, navegador, identificadores de clique) são apagados automaticamente em <strong>30 dias</strong>. Dados da compra ficam pelo prazo que a lei exigir. Você pode bloquear cookies no navegador; isso não impede a compra.</p>
+<h2>7. Seus direitos</h2>
+<p>Pela LGPD (art. 18), você pode pedir confirmação, acesso, correção, anonimização, bloqueio ou exclusão, portabilidade, informação sobre compartilhamento e <strong>oposição</strong> ao uso para anúncios, escrevendo para <strong>${mail}</strong>. Você também pode reclamar à ANPD (<a href="https://www.gov.br/anpd">gov.br/anpd</a>).</p>
+<h2>8. Mudanças</h2><p>A data no topo mostra a última versão desta política.</p>
+</div>`;
+}
+
+TELAS.reembolso = () => `<h1>Reembolso no Meta <span class="chip">opcional</span></h1><p class="sub">O Tracking Lab já manda um evento <b>"Reembolso"</b> a cada reembolso ou chargeback. Com dois cliques no Meta, você vê a taxa de reembolso por anúncio e para de anunciar para quem reembolsou.</p>
+  <div class="card"><ol class="passo-n"><li>Gerenciador de Eventos → <b>Conversões personalizadas → Criar</b> → evento <b>Reembolso</b> → nome "Reembolso".</li><li>Gerenciador de Anúncios → <b>Colunas → Personalizar</b> → inclua "Reembolso" para ver por campanha e anúncio.</li><li><b>Públicos → Criar público personalizado → Site</b> → evento "Reembolso", 180 dias → use para <b>excluir</b> das campanhas.</li></ol></div>
+  <div class="chips">${tog('c', 'reembolso', 'Fiz a conversão e o público', conf('reembolso'))}</div>${rodape('reembolso')}`;
+TELAS.reembolso.ligar = ligarConfirmacoes;
+
+TELAS.atualizacoes = () => `<h1>Atualizações</h1><p class="sub">O Meta e os checkouts mudam. As correções chegam sozinhas pela rotina "Atualizar Tracking Lab" no seu GitHub — mas a Cloudflare não copia essa rotina na instalação, então ela é posta uma vez, aqui.</p>
+  <div class="card" id="ver"><div class="vazio">Conferindo a versão…</div></div>
+  <div class="card"><div class="campo"><label class="r" for="repo">Seu repositório no GitHub</label><div class="linha"><input type="text" id="repo" placeholder="seu-usuario/tracking-lab" value="${esc(cfg().repositorio || '')}"><button class="btn" id="salvarRepo">Salvar</button></div><span class="mu sm">É a cópia que o botão de instalação criou (aparece no painel da Cloudflare, ao lado do projeto).</span></div>
+  <div id="rotina"></div></div>
+  <div class="chips">${tog('c', 'rotina', 'Instalei a rotina (apertei "Commit changes")', conf('rotina'))}</div>${rodape('atualizacoes')}`;
+TELAS.atualizacoes.ligar = async (raiz) => {
+  ligarConfirmacoes(raiz);
+  acao('#salvarRepo', async () => { const r = await api('config', { repositorio: $('#repo').value.trim() }); if (!r.ok) throw new Error(r.j.erro); toast('Repositório salvo'); });
+  const v = cache.versao || (cache.versao = (await api('versao')).j);
+  const alvo = $('#ver'); if (!alvo) return;
+  // "Nova" so se a da origem for MAIOR (0.10.0 > 0.9.0): numero por numero.
+  const maior = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+  const nova = v.ultima && maior(v.ultima, v.instalada);
+  alvo.innerHTML = lin(v.ultima ? (nova ? 'meio' : 'ok') : '', `Versão instalada: ${esc(v.instalada)}`, v.ultima ? (nova ? `A versão ${esc(v.ultima)} já saiu: a rotina traz na próxima segunda (ou rode agora na aba Actions do GitHub).` : 'É a mais nova.') : 'Não consegui ver a versão mais nova agora.');
+  const repo = cfg().repositorio;
+  const r = $('#rotina'); if (!r) return;
+  r.innerHTML = repo && v.rotina
+    ? `<p style="margin-top:10px">Aperte o botão: o GitHub abre com o arquivo pronto. É só apertar <b>Commit changes</b>.</p><a class="btn pri" target="_blank" rel="noopener" href="https://github.com/${esc(repo)}/new/main?filename=.github/workflows/atualizar.yml&value=${encodeURIComponent(v.rotina)}">Instalar a rotina no GitHub ↗</a>`
+    : '<p class="mu sm" style="margin-top:10px">Salve o repositório para aparecer o botão.</p>';
+};
+
+// ------------------------------------------------------------------ roteador
+const rotaAtual = () => (location.hash.replace(/^#\/?/, '') || 'painel').split('?')[0];
+function desenhar() {
+  const id = TELAS[rotaAtual()] ? rotaAtual() : 'painel';
+  desenharTrilho(id);
+  const tela = $('#tela');
+  tela.innerHTML = TELAS[id]();
+  copiaveis(tela);
+  if (TELAS[id].ligar) TELAS[id].ligar(tela);
+  $('#trilho').classList.remove('aberto');
+}
+window.addEventListener('hashchange', () => { desenhar(); window.scrollTo(0, 0); });
+$('#menu').onclick = () => $('#trilho').classList.toggle('aberto');
+carregar().then(desenhar).catch((e) => { $('#tela').innerHTML = `<div class="aviso bad">Não consegui carregar o Hub: ${esc(e.message)}</div>`; });
+})();
+</script>
+</body>
+</html>
