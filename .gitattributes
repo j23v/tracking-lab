@@ -1,3 +1,4 @@
 # O aplicar.sh roda no Linux do GitHub: com CRLF o bash quebra.
 *.sh text eol=lf
 *.yml text eol=lf
+*.bin binary

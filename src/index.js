@@ -18,7 +18,7 @@ import {
 import { detectarPagina } from './deteccao.js';
 import { paginaEntrar, paginaSemSenha } from './hub.js';
 import { paginaApp } from './hub/app.js';
-import { FAVICON, logoSvg } from './hub/marca.js';
+import { respostaIcone, respostaLogo } from './hub/marca.js';
 import { GRAPH_VERSAO_PADRAO, conferirChave, lerQualidade } from './meta.js';
 import {
   formatoDoPayload, processarVenda, reenviarPendentes, testeComControle,
@@ -30,7 +30,7 @@ import {
 
 // ⚠️ Sem `export` aqui: o modulo principal do Worker so pode exportar handlers
 // (o runtime recusa subir com uma constante exportada -- visto na F0).
-const VERSAO = '0.3.0';
+const VERSAO = '0.3.1';
 const TABELAS = ['alertas', 'config', 'envios', 'segredos', 'visitas'];
 // A origem publica do Tracking Lab (versoes novas e a rotina de atualizacao).
 const ORIGEM_REPO = 'j23v/tracking-lab';
@@ -350,11 +350,8 @@ export default {
       });
     }
 
-    if (caminho === '/lab/logo.svg' || caminho === '/favicon.svg' || caminho === '/favicon.ico') {
-      return new Response(caminho === '/lab/logo.svg' ? logoSvg({ tamanho: 168 }) : FAVICON, {
-        headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' },
-      });
-    }
+    if (caminho === '/lab/logo.webp') return respostaLogo();
+    if (caminho === '/favicon.png' || caminho === '/favicon.ico') return respostaIcone();
 
     if (caminho === '/v.js' && (request.method === 'GET' || request.method === 'HEAD')) {
       // Sem o banco (instalacao pela metade), marca ao menos os checkouts prontos.

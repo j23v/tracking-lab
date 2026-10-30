@@ -4,11 +4,11 @@
 // do cliente nao toca).
 
 import APP from './app.html';
-import { logoSvg } from './marca.js';
+import { logoImg } from './marca.js';
 
 export function paginaApp({ origem, versao }) {
   return APP
     .replaceAll('{{ORIGEM}}', String(origem).replace(/['"<>\\]/g, ''))
     .replaceAll('{{VERSAO}}', String(versao).replace(/[^\w.-]/g, ''))
-    .replace('{{LOGO}}', logoSvg({ tamanho: 62 }));
+    .replace('{{LOGO}}', logoImg(36));
 }

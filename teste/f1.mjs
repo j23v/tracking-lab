@@ -327,15 +327,20 @@ try {
 
   secao('Hub (telas)');
   const app = await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text();
-  ok('o Hub abre com a logo e o endereço do Worker', app.includes('<svg') && app.includes(`const ORIGEM = '${BASE}'`) && !app.includes('{{'));
+  ok('o Hub abre com a logo e o endereço do Worker', app.includes('src="/lab/logo.webp"') && app.includes(`const ORIGEM = '${BASE}'`) && !app.includes('{{'));
   // O erro de 30/10: um "</script>" dentro do JavaScript do Hub cortava a pagina.
   const jsHub = app.slice(app.indexOf('<script>') + 8, app.lastIndexOf('</script>'));
   let jsOk = true;
   try { new Function(jsHub); } catch { jsOk = false; } // eslint-disable-line no-new-func
   ok('o JavaScript do Hub e valido e nao fecha o proprio script', jsOk && !jsHub.includes('</script'));
   ok('CONTROLE: sem login, o Hub pede a senha', (await (await fetch(`${BASE}/lab`)).text()).includes('Entrar no seu Hub'));
-  const logo = await fetch(`${BASE}/lab/logo.svg`);
-  ok('logo e icone publicos (SVG)', logo.ok && /svg/.test(logo.headers.get('content-type') || '') && (await fetch(`${BASE}/favicon.svg`)).ok);
+  const logo = await fetch(`${BASE}/lab/logo.webp`);
+  const bLogo = new Uint8Array(await logo.arrayBuffer());
+  const icone = await fetch(`${BASE}/favicon.png`);
+  const bIcone = new Uint8Array(await icone.arrayBuffer());
+  // Confere os bytes de verdade (RIFF....WEBP / \x89PNG): o .bin foi empacotado como dado.
+  ok('logo (WebP) e icone (PNG) publicos, bytes certos', logo.ok && /webp/.test(logo.headers.get('content-type') || '')
+    && String.fromCharCode(...bLogo.slice(8, 12)) === 'WEBP' && icone.ok && bIcone[1] === 0x50 && bIcone[2] === 0x4e && bIcone[3] === 0x47);
   const st = (await api('/lab/api/status')).j;
   ok('status: pixel, chave so pela dica, visitas contadas', st.config.pixels.includes('111111') && st.segredos.some((s) => s.dica === 'TOKE…OVO')
     && !JSON.stringify(st).includes('TOKEN-NOVO') && st.visitas24h?.n >= 1 && st.visitas24h?.fbc >= 1);
