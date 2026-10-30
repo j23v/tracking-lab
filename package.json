@@ -1,0 +1,21 @@
+{
+  "name": "tracking-lab",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "testar": "node teste/f0.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.122.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "SENHA_HUB": {
+        "description": "Crie a senha para entrar no seu Hub do Tracking Lab (pelo menos 12 caracteres). Guarde: e com ela que voce abre o Hub."
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+# Atualizacao do Tracking Lab: traz o codigo novo do repositorio de origem
+# (j23v/tracking-lab) para a SUA copia. A Cloudflare ve a mudanca e publica
+# sozinha.
+#
+# Roda toda segunda e quando voce aperta "Run workflow" na aba Actions.
+# So troca o CODIGO. Nunca mexe em:
+#   - wrangler.jsonc  (tem o id do SEU banco, gravado pela Cloudflare na instalacao)
+#   - .github/        (o GitHub nao deixa uma rotina reescrever as proprias rotinas)
+#   - a configuracao do Hub, que fica no banco, e nao em arquivo.
+name: Atualizar Tracking Lab
+
+on:
+  schedule:
+    - cron: '23 10 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: atualizar
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    # Na propria origem nao ha o que atualizar.
+    if: github.repository != 'j23v/tracking-lab'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar a versao atual da origem
+        run: |
+          set -euo pipefail
+          curl -fsSL https://codeload.github.com/j23v/tracking-lab/tar.gz/refs/heads/main -o /tmp/origem.tgz
+          mkdir -p /tmp/origem
+          tar -xzf /tmp/origem.tgz -C /tmp/origem --strip-components=1
+          grep -q "VERSAO = '" /tmp/origem/src/index.js  # pacote estranho: para aqui
+
+      - name: Copiar o codigo novo
+        run: |
+          set -euo pipefail
+          rsync -a --exclude '.git/' --exclude '.github/' --exclude 'wrangler.jsonc' --exclude 'node_modules/' /tmp/origem/ ./
+          # src/ inteira espelhada: um arquivo que saiu da origem sai daqui tambem.
+          rsync -a --delete /tmp/origem/src/ ./src/
+
+      - name: Gravar, se mudou
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Ja esta na versao mais nova."
+            exit 0
+          fi
+          versao=$(grep -o "VERSAO = '[^']*'" src/index.js | cut -d"'" -f2)
+          git config user.name "Tracking Lab"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Atualizacao do Tracking Lab para a versao ${versao}"
+          git push

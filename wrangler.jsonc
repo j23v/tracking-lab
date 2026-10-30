@@ -1,0 +1,22 @@
+// Tracking Lab -- configuracao lida pelo botao "Deploy to Cloudflare".
+//
+// ⚠️ O banco vai SEM `database_id` de proposito: o botao (e o `wrangler deploy`
+// numa conta nova) cria o D1 sozinho e grava o id na copia do cliente. A
+// migracao do `npm run deploy` usa o BINDING ("DB"), e nao o nome, para valer
+// mesmo se o cliente der outro nome ao banco (pedido da doc da Cloudflare).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tracking-lab",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-05",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tracking-lab-db",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // UM cron so: a conta gratis aceita poucos, e o cliente pode ter outros Workers.
+  "triggers": { "crons": ["*/10 * * * *"] },
+  "observability": { "enabled": true }
+}
