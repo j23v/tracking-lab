@@ -119,6 +119,9 @@ td.n{text-align:right;font-family:var(--mono)}
 .toast.bad{border-left-color:var(--verm)}
 @keyframes sobe{from{transform:translateY(8px);opacity:0}}
 .vazio{padding:28px;text-align:center;color:var(--tx3);border:1px dashed var(--borda2);border-radius:var(--r)}
+.fundo-ia{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20}
+.painel-ia{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--p1);border-left:1px solid var(--borda2);z-index:21;padding:20px 22px 40px;overflow:auto;animation:entra .2s}
+@keyframes entra{from{transform:translateX(24px);opacity:0}}
 .menu-mob{display:none}
 @media (max-width:860px){
   .casca{grid-template-columns:1fr}
@@ -127,7 +130,7 @@ td.n{text-align:right;font-family:var(--mono)}
   .menu-mob{display:inline-flex}
   main{padding:20px 16px 50px}
   .topo{padding:10px 16px}
-  .nome,.topo .ver{display:none}
+  .nome,.topo .ver,#modo{display:none}
   .topo{gap:8px}
   .barra2{grid-template-columns:96px 1fr 44px}
 }
@@ -138,6 +141,7 @@ td.n{text-align:right;font-family:var(--mono)}
   <button class="btn sm fant menu-mob" id="menu" aria-label="Etapas">☰</button>
   <a class="marca" href="#/painel">{{LOGO}}<span class="nome">Tracking <b>Lab</b></span></a>
   <span class="sp"></span>
+  <button class="btn sm pri" id="abrirIA" type="button">Assistente</button>
   <span class="chip" id="modo">—</span>
   <span class="chip mu3 ver" title="Versão instalada">v{{VERSAO}}</span>
   <form method="post" action="/lab/sair" style="margin:0"><button class="btn sm fant" type="submit">Sair</button></form>
@@ -149,6 +153,8 @@ td.n{text-align:right;font-family:var(--mono)}
   </nav>
   <main id="tela"><div class="vazio">Carregando…</div></main>
 </div>
+<div id="fundoIA" class="fundo-ia oculto"></div>
+<aside id="painelIA" class="painel-ia oculto" aria-label="Assistente de IA"></aside>
 <div id="toasts" aria-live="polite"></div>
 
 <script>
@@ -175,6 +181,7 @@ async function api(caminho, corpo) {
 async function carregar() {
   const [a, b] = await Promise.all([api('status'), api('perfis')]);
   S = a.j; P = b.j;
+  ETAPAS = (S.etapas || []).map((e) => ({ id: e.id, t: e.titulo, opc: e.opcional, st: () => e.luz }));
 }
 /** Botao com "girando" enquanto a acao roda; recarrega o estado e redesenha. */
 function acao(sel, fn, { recarregar = true } = {}) {
@@ -211,19 +218,8 @@ const nomeCk = (id) => (P?.prontos || []).find((p) => p.id === id)?.nome || (id 
 const usados = () => cfg().checkouts || [];
 
 // ------------------------------------------------------------------ etapas
-const ETAPAS = [
-  { id: 'plataformas', t: 'Suas plataformas', st: () => (S.deteccao && cfg().pixels?.length && usados().length ? 'ok' : S.deteccao || cfg().pixels?.length ? 'meio' : '') },
-  { id: 'chave', t: 'Chave do Meta', st: () => (seg('meta_token') ? 'ok' : '') },
-  { id: 'pagina', t: 'Página de vendas', st: () => (S.deteccao?.script || S.visitas24h?.n ? 'ok' : S.deteccao ? 'meio' : '') },
-  { id: 'checkout', t: 'Checkout', st: () => { const u = usados(); if (!u.length) return ''; const comToken = u.filter((id) => seg(`${id}_token`)); if (comToken.length === u.length && S.ultimoWebhook) return 'ok'; return comToken.length ? 'meio' : ''; } },
-  { id: 'duplicacao', t: 'Anti-duplicação', st: () => (S.deteccao?.compraNoNavegador ? 'bad' : conf('dup_checkout') && (!ferramentasRisco().length || conf('dup_ferramentas')) ? 'ok' : '') },
-  { id: 'teste', t: 'Teste com controle', st: () => (S.ultimoTeste ? (S.ultimoTeste.ok ? 'ok' : 'bad') : '') },
-  { id: 'ligar', t: 'Ligar de verdade', st: () => (!cfg().codigo_teste && S.ultimoTeste?.ok ? 'ok' : '') },
-  { id: 'resultados', t: 'Resultados', st: () => ((S.envios24h || []).some((e) => e.status === 'enviado' && !e.teste) ? 'ok' : '') },
-  { id: 'privacidade', t: 'Privacidade', st: () => (conf('privacidade') ? 'ok' : '') },
-  { id: 'reembolso', t: 'Reembolso no Meta', opc: true, st: () => (conf('reembolso') ? 'ok' : 'opc') },
-  { id: 'atualizacoes', t: 'Atualizações', st: () => (conf('rotina') && cfg().repositorio ? 'ok' : cfg().repositorio ? 'meio' : '') },
-];
+// As etapas e a luz de cada uma vem do sistema (src/receitas.js): a mesma regra da IA.
+let ETAPAS = [];
 const ferramentasRisco = () => (S.deteccao?.ferramentas || []).filter((f) => f.id === 'utmify' || f.id === 'metawp');
 
 function desenharTrilho(atual) {
@@ -346,17 +342,8 @@ TELAS.chave.ligar = () => acao('#conf', async () => {
   toast('Chave aceita pelo Meta e guardada');
 });
 
-const RECEITAS = {
-  wordpress: { nome: 'WordPress', passos: ['No painel do WordPress, instale (se não tiver) o plugin <b>Header Footer Code Manager</b>.', 'Vá em <b>HFCM → Add New</b>. Nome: <i>Tracking Lab</i> · Site Display: <b>Site Wide</b> · Location: <b>Header</b>.', 'Cole a linha abaixo e salve.', 'Se usa cache (LiteSpeed, WP Rocket…): <b>limpe o cache</b>.'] },
-  elementor: { nome: 'Elementor', passos: ['Com Elementor Pro: <b>Elementor → Código personalizado → Adicionar novo</b>, local <b>&lt;head&gt;</b>, todas as páginas.', 'Sem o Pro: use o plugin <b>Header Footer Code Manager</b> (aba WordPress).', 'Cole a linha abaixo, publique e limpe o cache.'] },
-  gtm: { nome: 'Google Tag Manager', passos: ['No GTM: <b>Tags → Nova → HTML personalizado</b>.', 'Cole a linha abaixo. Acionador: <b>All Pages</b>.', '<b>Enviar → Publicar</b>.'] },
-  shopify: { nome: 'Shopify', passos: ['<b>Loja virtual → Temas → … → Editar código</b>.', 'Abra <b>theme.liquid</b> e cole a linha logo antes de <code>&lt;/head&gt;</code>.', 'Salve.'] },
-  wix: { nome: 'Wix', passos: ['<b>Configurações → Código personalizado → Adicionar código</b>.', 'Cole a linha, escolha <b>Todas as páginas</b> e <b>Head</b>.', 'Aplique e publique o site.'] },
-  webflow: { nome: 'Webflow', passos: ['<b>Project settings → Custom code → Head code</b>.', 'Cole a linha e publique.'] },
-  framer: { nome: 'Framer', passos: ['<b>Site settings → General → Custom code → End of &lt;head&gt;</b>.', 'Cole a linha e publique.'] },
-  html: { nome: 'HTML / outro', passos: ['Cole a linha dentro do <code>&lt;head&gt;</code> de todas as páginas de vendas.', 'Publique e limpe o cache, se houver.'] },
-};
 TELAS.pagina = () => {
+  const RECEITAS = P.receitas.pagina;
   const d = S.deteccao;
   const sites = (d?.sites || []).map((s) => s.id).filter((id) => RECEITAS[id]);
   const abas = [...new Set([...sites, 'wordpress', 'gtm', 'html'])];
@@ -376,7 +363,7 @@ TELAS.pagina = () => {
     ${lin(d?.compraNoNavegador ? 'bad' : d ? 'ok' : '', 'Sem Compra no navegador', d?.compraNoNavegador ? 'achamos um fbq(…Purchase) na página: tire-o' : '')}
     <div class="linha" style="margin-top:10px"><button class="btn pri" id="conferir">Conferir</button></div>
   </div>
-  <h2>Prefere que a sua IA faça?</h2><p class="mu sm">Se o seu assistente tem acesso ao navegador ou ao seu site, cole isto nele:</p>
+  <h2>Prefere que a sua IA faça?</h2><p class="mu sm">Se a sua IA tem acesso ao navegador ou ao seu site, cole isto nela (ou use o botão <b>Assistente</b>, no topo):</p>
   ${codigo(`Etapa "Página de vendas" do Tracking Lab no site ${cfg().dominio || '(minha página)'}${sites.length ? ` (${sites.map((s) => RECEITAS[s].nome).join(', ')})` : ''}.\nColoque no <head> de todas as páginas esta linha:\n${linha}\nMostre o que vai fazer e espere eu dizer "pode". Não mexa em mais nada. Depois limpe o cache e me peça para apertar "Conferir" no Hub.`)}
   ${rodape('pagina')}`;
 };
@@ -392,15 +379,6 @@ TELAS.pagina.ligar = (raiz) => {
   });
 };
 
-const TOKEN_DE = {
-  kirvano: { onde: 'Na Kirvano: <b>Integrações → Webhooks → Novo</b>.', token: 'O <b>token</b> que a Kirvano mostra no webhook' },
-  kiwify: { onde: 'Na Kiwify: <b>Apps → Webhooks → Criar webhook</b>.', token: 'O <b>token</b> do webhook (a Kiwify assina cada aviso com ele)' },
-  hotmart: { onde: 'Na Hotmart: <b>Ferramentas → Webhook (API e notificações) → Cadastrar webhook</b>, versão 2.0.', token: 'O <b>hottok</b> que aparece na tela do webhook' },
-  eduzz: { onde: 'Na Eduzz: <b>Configurações → Webhooks</b> (MyEduzz) e cadastre a URL.', token: 'A <b>chave de origem</b> (originSecret)' },
-  cakto: { onde: 'Na Cakto: <b>Integrações → Webhooks → Adicionar</b>.', token: 'O <b>secret</b> do webhook' },
-  padrao: { onde: 'Na plataforma (ou no Zapier/Make/n8n): um webhook para a URL abaixo, no <b>Formato padrão</b> (orderId, status, customer, products, trackingParameters).', token: 'Um segredo criado aqui (vai na URL)', gerar: true },
-  outro: { onde: 'Na plataforma: um webhook para a URL abaixo.', token: 'Um segredo criado aqui (vai na URL)', gerar: true },
-};
 const geradoAgora = {};
 function novoSegredo() { const a = new Uint8Array(18); crypto.getRandomValues(a); return [...a].map((b) => b.toString(16).padStart(2, '0')).join(''); }
 
@@ -411,7 +389,7 @@ TELAS.checkout = () => {
   ${u.map((id) => cardCheckout(id)).join('')}${rodape('checkout')}`;
 };
 function cardCheckout(id) {
-  const info = TOKEN_DE[id] || TOKEN_DE.outro;
+  const info = P.receitas.checkout[id] || P.receitas.checkout.outro;
   const s = seg(`${id}_token`);
   const perfil = id === 'outro' ? P?.outro : (P?.prontos || []).find((p) => p.id === id);
   const k = geradoAgora[id];
@@ -646,6 +624,102 @@ TELAS.atualizacoes.ligar = async (raiz) => {
     ? `<p style="margin-top:10px">Aperte o botão: o GitHub abre com o arquivo pronto. É só apertar <b>Commit changes</b>.</p><a class="btn pri" target="_blank" rel="noopener" href="https://github.com/${esc(repo)}/new/main?filename=.github/workflows/atualizar.yml&value=${encodeURIComponent(v.rotina)}">Instalar a rotina no GitHub ↗</a>`
     : '<p class="mu sm" style="margin-top:10px">Salve o repositório para aparecer o botão.</p>';
 };
+
+// ------------------------------------------------------------------ o assistente
+// O painel que liga a IA do cliente ao Hub: o conector (a IA ganha os "botoes" do
+// Tracking Lab, src/mcp.js) ou o texto pronto para colar em qualquer IA.
+let conectorUrl = '';   // o endereco so existe na tela logo depois de criado
+let abaIA = 'conectar';
+let iaEscolhida = 'claude';
+
+const IAS = {
+  claude: { nome: 'Claude', passos: (u) => [
+    'No Claude: <b>Configurações → Conectores → Adicionar conector personalizado</b>.',
+    `Nome: <i>Tracking Lab</i>. URL:${codigo(u)}`,
+    'Adicione e, numa conversa nova, escreva: <i>"continue meu Tracking Lab"</i>.',
+  ] },
+  chatgpt: { nome: 'ChatGPT', passos: (u) => [
+    'No ChatGPT: <b>Configurações → Apps e conectores → Avançado → Modo desenvolvedor</b> (planos pagos).',
+    `<b>Criar</b> · Nome: <i>Tracking Lab</i> · Autenticação: <b>nenhuma</b>. URL:${codigo(u)}`,
+    'Numa conversa nova, ative o conector e escreva: <i>"continue meu Tracking Lab"</i>.',
+  ] },
+  goose: { nome: 'Goose', passos: (u) => [
+    `Com o Goose instalado, um clique: <a class="btn sm pri" href="goose://extension?url=${encodeURIComponent(u)}&type=streamable_http&id=tracking-lab&name=${encodeURIComponent('Tracking Lab')}&description=${encodeURIComponent('Vendas do checkout ao Meta pelo servidor')}">Adicionar ao Goose</a>`,
+    `Ou à mão: <b>Extensões → Adicionar extensão personalizada</b> · tipo <b>Streamable HTTP</b>. Endereço:${codigo(u)}`,
+    'Numa conversa nova, escreva: <i>"continue meu Tracking Lab"</i>.',
+  ] },
+  outras: { nome: 'Cursor / Claude Code', passos: (u) => [
+    `Cursor (<code>mcp.json</code>):${codigo(JSON.stringify({ mcpServers: { 'tracking-lab': { url: u } } }, null, 2))}`,
+    `Claude Code:${codigo(`claude mcp add --transport http tracking-lab ${u}`)}`,
+    'Depois, escreva: <i>"continue meu Tracking Lab"</i>.',
+  ] },
+};
+
+/** O texto para colar em qualquer IA: ja sabe a etapa, as plataformas e o que falta. */
+function textoPronto() {
+  const p = proxima();
+  const luz = { ok: 'ok', meio: 'falta pouco', bad: 'PROBLEMA', '': 'a fazer', opc: 'opcional' };
+  const d = S.deteccao;
+  return [
+    'Você é meu ajudante no Tracking Lab: o sistema que manda as vendas do meu checkout ao Meta pelo servidor. Fale simples, em passos curtos, e uma coisa de cada vez.',
+    '',
+    `Minha página: ${cfg().dominio || '(ainda não informei)'}`,
+    `Onde ela é feita: ${(d?.sites || []).map((s) => s.nome).join(', ') || '(não detectado)'}`,
+    `Checkout: ${usados().map(nomeCk).join(', ') || '(ainda não escolhi)'}`,
+    `Pixel: ${(cfg().pixels || []).join(', ') || '(ainda não escolhi)'}`,
+    `Outras ferramentas na página: ${(d?.ferramentas || []).map((f) => f.nome).join(', ') || 'nenhuma detectada'}`,
+    '',
+    'As etapas do meu Hub:',
+    ...ETAPAS.map((e, i) => `${i + 1}. ${e.t}: ${luz[e.st()] ?? e.st()}`),
+    '',
+    p ? `Estou na etapa "${p.t}". Me ajude com ela.` : 'Todas as etapas estão ok. Me ajude a entender os resultados.',
+    '',
+    'Regras:',
+    '- Quem diz se um passo ficou certo é o Hub: depois de cada passo, me peça para apertar "Conferir".',
+    '- Se eu colar a chave do Meta (começa com EAA), confirme se é ela e me diga para colar no Hub, na etapa Chave do Meta.',
+    '- Em cada pixel, só o Tracking Lab manda a Compra: ela fica desligada no checkout e em outras ferramentas.',
+    '- Não sugira gerar a chave por outra BM para fugir de um bloqueio do Meta.',
+    '- Se não tiver certeza de onde fica um menu, me peça um print em vez de adivinhar.',
+  ].join('\n');
+}
+
+async function desenharIA() {
+  const alvo = $('#painelIA');
+  const abas = `<div class="abas">${[['conectar', 'Conectar a minha IA'], ['colar', 'Só copiar e colar']].map(([id, t]) => `<button type="button" data-aba="${id}" class="${abaIA === id ? 'on' : ''}">${t}</button>`).join('')}</div>`;
+  let corpo;
+  if (abaIA === 'colar') {
+    corpo = `<p class="mu" style="margin-top:12px">Funciona em qualquer IA, sem instalar nada: ela explica e você clica. O texto já diz em que etapa você está e quais plataformas usa.</p>${codigo(textoPronto())}<p class="mu sm">O texto muda conforme você avança: copie de novo numa conversa nova.</p>`;
+  } else {
+    if (!cache.conector) alvo.innerHTML = '<div class="vazio">Carregando…</div>';
+    const c = cache.conector || (cache.conector = (await api('conector')).j);
+    const u = conectorUrl;
+    const ia = IAS[iaEscolhida];
+    corpo = `<p class="mu" style="margin-top:12px">Com o conector, a sua IA vê as luzes, mostra o passo certo para as suas plataformas, salva a chave que você colar e confere cada etapa. Quem liga de verdade continua sendo você, aqui no Hub.</p>
+    ${u ? '' : `<div class="card">${c.ativo ? lin('ok', 'Conector criado', `em ${quando(c.quando)}. O endereço completo só aparece na criação: se precisar dele de novo, crie outro (o anterior para de funcionar).`) : lin('', 'Ainda sem conector')}<div class="linha" style="margin-top:8px"><button class="btn ${c.ativo ? '' : 'pri'}" id="criarConector" type="button">${c.ativo ? 'Criar outro endereço' : 'Criar o endereço do conector'}</button></div></div>`}
+    ${u ? `<div class="aviso ok"><b>Endereço criado.</b> Copie agora: ele é a chave de entrada da sua IA no Tracking Lab, então trate como uma senha.</div>
+    <div class="abas" id="abasIA">${Object.entries(IAS).map(([id, x]) => `<button type="button" data-ia="${id}" class="${iaEscolhida === id ? 'on' : ''}">${x.nome}</button>`).join('')}</div>
+    <ol class="passo-n">${ia.passos(u).map((p) => `<li>${p}</li>`).join('')}</ol>
+    <p class="mu sm">Os menus de cada IA podem mudar de nome. Se não achar, pergunte a ela mesma como adicionar um conector MCP pela URL.</p>` : ''}`;
+  }
+  alvo.innerHTML = `<div class="linha" style="justify-content:space-between"><h1 style="margin:0">Assistente</h1><button class="btn sm fant" id="fecharIA" type="button">Fechar</button></div>${abas}${corpo}`;
+  copiaveis(alvo);
+  $('#fecharIA').onclick = () => alternarIA(false);
+  alvo.querySelectorAll('[data-aba]').forEach((b) => b.onclick = () => { abaIA = b.dataset.aba; desenharIA(); });
+  alvo.querySelectorAll('[data-ia]').forEach((b) => b.onclick = () => { iaEscolhida = b.dataset.ia; desenharIA(); });
+  acao('#criarConector', async () => {
+    const r = await api('conector', {});
+    if (!r.j.url) throw new Error('Não consegui criar o endereço');
+    conectorUrl = r.j.url; cache.conector = { ativo: true, dica: r.j.dica, quando: r.j.quando };
+    desenharIA();
+  }, { recarregar: false });
+}
+function alternarIA(abrir) {
+  $('#painelIA').classList.toggle('oculto', !abrir);
+  $('#fundoIA').classList.toggle('oculto', !abrir);
+  if (abrir) desenharIA().catch((e) => toast(e.message, 'bad'));
+}
+$('#abrirIA').onclick = () => alternarIA(true);
+$('#fundoIA').onclick = () => alternarIA(false);
 
 // ------------------------------------------------------------------ roteador
 const rotaAtual = () => (location.hash.replace(/^#\/?/, '') || 'painel').split('?')[0];

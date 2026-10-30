@@ -26,7 +26,8 @@ export const IDS_DE_CHECKOUT = [...Object.keys(PERFIS), 'outro'];
 
 /** meta_token, ou o token do webhook de um checkout: `<id>_token`. */
 export function segredoValido(nome) {
-  return nome === 'meta_token' || IDS_DE_CHECKOUT.some((id) => nome === `${id}_token`);
+  // mcp_token: o segredo do endereco do conector da IA (src/mcp.js).
+  return nome === 'meta_token' || nome === 'mcp_token' || IDS_DE_CHECKOUT.some((id) => nome === `${id}_token`);
 }
 
 /** Valida e limpa; devolve { ok, config } ou { ok: false, erro }. */

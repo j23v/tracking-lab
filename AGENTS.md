@@ -18,12 +18,18 @@ Meta pelo servidor. Fale simples, em passos curtos, e confirme antes de agir.
 
 ## Depois de instalado
 - Tudo se configura no **Hub** (`/lab`), etapa por etapa. **Quem diz se um passo ficou certo é o
-  Hub**, não você: depois de cada ação, peça para conferir lá (ou use a ferramenta de conferência
-  do conector do Tracking Lab, quando existir).
+  Hub**, não você: depois de cada ação, peça para conferir lá (ou use `tl_status` e
+  `tl_detectar_pagina` pelo conector).
 - Faça **só** o que a etapa pede. Antes de clicar ou mudar algo em qualquer painel (Kirvano,
   Meta, WordPress), diga o que vai fazer e espere o "pode".
 
-## Configurar pela API do Hub (enquanto as telas das etapas não ficam prontas)
+## O conector (o melhor caminho)
+No Hub, o botão **Assistente** cria o endereço do conector (`/mcp/<segredo>`, um servidor MCP). Com
+ele ligado, você tem as ferramentas `tl_*`: comece por `tl_status` e use `tl_receita` para o passo
+a passo já personalizado. Criar outro endereço derruba o anterior. "Ligar de verdade" é só pelo
+botão no Hub.
+
+## Configurar pela API do Hub (sem o conector)
 Entre com `POST /lab/entrar` (formulário, campo `senha`) e use o cookie `tl_sessao` nas chamadas:
 
 | O quê | Chamada |
@@ -75,8 +81,8 @@ O que colar na página e a URL do webhook aparecem no painel (`/lab`). Ordem que
 
 ## Chave do Meta e token do webhook
 - Se a pessoa colar a chave no chat perguntando se é ela: confirme com naturalidade (a chave do
-  Meta começa com `EAA`) e salve pelo conector do Tracking Lab, quando houver. Sem conector, diga
-  onde colar no Hub (etapa "Chave do Meta").
+  Meta começa com `EAA`) e salve com `tl_salvar_chave_meta`. Sem conector, diga onde colar no Hub
+  (etapa "Chave do Meta").
 - Não repita a chave inteira nas suas respostas. Nada de sermão: se ela quiser trocar a chave
   depois, é 1 minuto no Hub.
 

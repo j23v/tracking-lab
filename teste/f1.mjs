@@ -359,6 +359,77 @@ try {
   ok('repositorio aceito (link do GitHub vira usuario/nome)', (await api('/lab/api/config', { repositorio: 'https://github.com/ana/tracking-lab' })).j.config.repositorio === 'ana/tracking-lab');
   ok('teste com controle fica registrado para a etapa', (await api('/lab/api/status')).j.ultimoTeste?.ok === true);
   ok('versao instalada informada', (await api('/lab/api/versao')).j.instalada === versao);
+  ok('o Hub traz o botao do Assistente', app.includes('id="abrirIA"') && app.includes('id="painelIA"'));
+  const stE = (await api('/lab/api/status')).j;
+  ok('as 11 etapas vem do sistema, com a luz', stE.etapas?.length === 11 && stE.etapas.find((e) => e.id === 'chave')?.luz === 'ok');
+  const perfisR = (await api('/lab/api/perfis')).j;
+  ok('as receitas vem do sistema', Boolean(perfisR.receitas?.pagina?.wordpress && perfisR.receitas?.checkout?.hotmart));
+
+  secao('conector da IA (MCP)');
+  ok('sem conector no comeco', (await api('/lab/api/conector')).j.ativo === false);
+  const semMcp = `${BASE}/mcp/${'a'.repeat(48)}`;
+  ok('CONTROLE: sem conector criado, o endereco nao existe', (await fetch(semMcp, { method: 'POST', body: '{}' })).status === 404);
+  const criado = (await api('/lab/api/conector', {})).j;
+  const urlMcp = criado.url || '';
+  ok('endereco criado', /\/mcp\/[0-9a-f]{48}$/.test(urlMcp));
+  const verConector = (await api('/lab/api/conector')).j;
+  ok('depois, so a dica volta (nunca o endereco)', verConector.ativo === true && !JSON.stringify(verConector).includes(urlMcp.split('/').pop()));
+  ok('CONTROLE: segredo errado -> 404', (await fetch(semMcp, { method: 'POST', body: '{}' })).status === 404);
+  ok('CONTROLE: /mcp sem segredo -> 404', (await fetch(`${BASE}/mcp`, { method: 'POST', body: '{}' })).status === 404);
+  ok('GET no endereco -> 405 (sem fluxo aberto)', (await fetch(urlMcp)).status === 405);
+  let idRpc = 0;
+  const rpc = async (method, params, url = urlMcp) => {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++idRpc, method, params }) });
+    return { status: r.status, j: await r.json().catch(() => ({})) };
+  };
+  const ferr = async (name, args = {}) => {
+    const r = (await rpc('tools/call', { name, arguments: args })).j.result || {};
+    return { erro: r.isError === true, txt: r.content?.[0]?.text || '', dados: r.structuredContent };
+  };
+  const ini = await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'suite', version: '1' } });
+  ok('initialize: versao, nome e instrucoes', ini.j.result?.protocolVersion === '2025-06-18' && ini.j.result?.serverInfo?.name === 'tracking-lab'
+    && ini.j.result?.capabilities?.tools && /Tracking Lab/.test(ini.j.result?.instructions || ''));
+  ok('versao desconhecida: responde uma suportada', (await rpc('initialize', { protocolVersion: '1999-01-01' })).j.result?.protocolVersion === '2025-06-18');
+  const notif = await fetch(urlMcp, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+  ok('notificacao -> 202 sem corpo', notif.status === 202);
+  const lista = (await rpc('tools/list')).j.result?.tools || [];
+  ok('11 ferramentas, todas com esquema', lista.length === 11 && lista.every((t) => t.name.startsWith('tl_') && t.inputSchema?.type === 'object'));
+  ok('CONTROLE: nao existe ferramenta de ligar', !lista.some((t) => /ligar/.test(t.name)));
+  const s1 = await ferr('tl_status');
+  ok('tl_status: etapas e proxima', s1.dados?.etapas?.length === 11 && /Chave do Meta/.test(s1.txt) && /compras aceitas/.test(s1.txt));
+  const rp = await ferr('tl_receita', { etapa: 'pagina' });
+  ok('tl_receita pagina: a linha e a receita do construtor detectado', rp.txt.includes(`${BASE}/v.js`) && /WordPress/.test(rp.txt) && !rp.txt.includes('<b>'));
+  const rc = await ferr('tl_receita', { etapa: 'checkout', plataforma: 'hotmart' });
+  ok('tl_receita checkout: URL e de onde vem o token', rc.txt.includes(`${BASE}/w/hotmart`) && /hottok/.test(rc.txt));
+  ok('CONTROLE: etapa desconhecida da erro', (await ferr('tl_receita', { etapa: 'nada' })).erro);
+  ok('tl_detectar_pagina', /ENCONTRADA/.test((await ferr('tl_detectar_pagina', { url: `http://127.0.0.1:${PORTA_META}/pagina` })).txt));
+  ok('CONTROLE: pixel invalido da erro', (await ferr('tl_configurar', { pixels: ['abc'] })).erro);
+  ok('CONTROLE: a IA nao tira o modo teste (codigo_teste nao passa)', (await ferr('tl_configurar', { codigo_teste: '' })).erro);
+  ok('tl_configurar grava', !(await ferr('tl_configurar', { checkouts: ['kirvano', 'hotmart'] })).erro
+    && (await api('/lab/api/config')).j.config.checkouts.includes('hotmart'));
+  const kRuim = await ferr('tl_salvar_chave_meta', { chave: 'TOKEN-RUIM' });
+  ok('CONTROLE: chave ruim recusada, sem repetir a chave', kRuim.erro && !kRuim.txt.includes('TOKEN-RUIM'));
+  const kBoa = await ferr('tl_salvar_chave_meta', { chave: 'TOKEN-NOVO-DA-IA' });
+  ok('chave colada no chat: conferida e guardada, so a dica volta', !kBoa.erro && /aceita/.test(kBoa.txt) && !kBoa.txt.includes('TOKEN-NOVO-DA-IA'));
+  ok('tl_salvar_token_checkout', !(await ferr('tl_salvar_token_checkout', { checkout: 'kiwify', token: 'tk-kiwify-1234' })).erro);
+  ok('CONTROLE: a IA nao troca o segredo do proprio conector', (await ferr('tl_salvar_token_checkout', { checkout: 'mcp', token: 'x' })).erro);
+  ok('CONTROLE: confirmacao desconhecida da erro', (await ferr('tl_confirmar', { item: 'qualquer', feito: true })).erro);
+  ok('tl_confirmar', !(await ferr('tl_confirmar', { item: 'privacidade', feito: true })).erro);
+  ok('CONTROLE: codigo que nao comeca com TEST da erro', (await ferr('tl_teste_controle', { codigo_teste: 'XYZ' })).erro);
+  const tIa = await ferr('tl_teste_controle', { codigo_teste: 'TEST777' });
+  ok('tl_teste_controle: passou', /PASSOU/.test(tIa.txt) && !/NÃO PASSOU/.test(tIa.txt), tIa.txt.slice(0, 120));
+  await api('/lab/api/config', { codigo_teste: '' });
+  ok('tl_resultados: nota e envios', /Nota do Meta/.test((await ferr('tl_resultados')).txt));
+  const anIa = await ferr('tl_analisar_exemplo', { exemplo: { status: 'pago', email: 'q@exemplo.com' } });
+  ok('tl_analisar_exemplo: campos mascarados', anIa.dados?.campos?.length === 2 && !JSON.stringify(anIa.dados).includes('q@exemplo.com'));
+  ok('CONTROLE: perfil ruim da erro', (await ferr('tl_salvar_perfil_outro', { perfil: { eventos: {}, campos: {} } })).erro);
+  ok('CONTROLE: ferramenta desconhecida -> erro do protocolo', (await rpc('tools/call', { name: 'tl_nada' })).j.error?.code === -32602);
+  ok('CONTROLE: metodo desconhecido -> erro do protocolo', (await rpc('resources/list')).j.error?.code === -32601);
+  ok('CONTROLE: JSON ruim -> 400', (await fetch(urlMcp, { method: 'POST', body: '{' })).status === 400);
+  const lote = await fetch(urlMcp, { method: 'POST', body: JSON.stringify([{ jsonrpc: '2.0', id: 1, method: 'ping' }, { jsonrpc: '2.0', id: 2, method: 'ping' }]) });
+  ok('lote de mensagens', (await lote.json()).length === 2);
+  const novoMcp = (await api('/lab/api/conector', {})).j.url;
+  ok('CONTROLE: criar outro endereco derruba o anterior', (await fetch(urlMcp, { method: 'POST', body: '{}' })).status === 404 && (await rpc('ping', {}, novoMcp)).status === 200);
 } catch (erro) {
   ok('suite', false, String(erro.stderr || erro.stack || erro.message).slice(-500));
 } finally {
