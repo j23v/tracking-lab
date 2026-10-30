@@ -3,9 +3,12 @@
 Suas vendas do checkout chegam ao Meta pelo servidor, ligadas ao clique do anúncio, com um Hub que
 ensina e confere cada passo.
 
-> **Versão 0.1 (em teste).** Já funcionam a instalação, o envio das vendas da **Kirvano** ao Meta
-> (Compra e Reembolso, ligados à visita da página, com nova tentativa automática) e a API do Hub.
-> As telas passo a passo do Hub vêm na próxima versão.
+> **Versão 0.2 (em teste).** Já funcionam a instalação e o envio das vendas ao Meta (Compra e
+> Reembolso, ligados à visita da página, com nova tentativa automática). Checkouts com perfil
+> pronto: **Kirvano** (confirmado em vendas reais), **Kiwify**, **Hotmart**, **Eduzz** e **Cakto**
+> (pela documentação, confirmados na 1ª venda real). Também há o **Formato padrão** (API) e o
+> **Outro checkout**, montado a partir de um webhook de exemplo, para qualquer plataforma com
+> webhook. As telas passo a passo do Hub vêm na próxima versão.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/j23v/tracking-lab)
 

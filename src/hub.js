@@ -52,7 +52,7 @@ const CODE = 'font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px
  * etapa sao a F2; por enquanto a configuracao entra pela API (/lab/api/*),
  * que o assistente de IA usa.
  */
-export function paginaPainel(st, origem = '') {
+export function paginaPainel(st, origem = '', checkouts = [{ id: 'kirvano', nome: 'Kirvano', pronto: true }]) {
   const quando = (ms) => new Date(ms).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   const faltam = st.tabelasFaltando.length;
   const cfg = st.config || { pixels: [], produtos: [] };
@@ -70,15 +70,16 @@ ${item(st.ultimoCron ? 'ok' : '', 'Rotina a cada 10 minutos', st.ultimoCron ? `r
 <p class="mu">${cfg.codigo_teste ? `<b>Modo teste</b> (${esc(cfg.codigo_teste)}): as compras aparecem em "Testar eventos" e não valem nas campanhas.` : 'Valendo: as compras vão para as campanhas.'}</p>
 ${item(cfg.pixels.length ? 'ok' : '', 'Pixel', cfg.pixels.length ? cfg.pixels.join(', ') : 'falta configurar')}
 ${item(seg.meta_token ? 'ok' : '', 'Chave do Meta', seg.meta_token ? `${seg.meta_token.dica} · conferida no Meta` : 'falta')}
-${item(seg.kirvano_token ? 'ok' : '', 'Token do webhook (Kirvano)', seg.kirvano_token ? seg.kirvano_token.dica : 'falta')}
+${checkouts.map((c) => item(seg[`${c.id}_token`] ? 'ok' : '', `Token do webhook (${c.nome})`,
+    !c.pronto ? 'monte o perfil deste checkout primeiro' : seg[`${c.id}_token`] ? seg[`${c.id}_token`].dica : 'falta')).join('')}
 ${item(cfg.produtos.length ? 'ok' : '', 'Produtos', cfg.produtos.length ? cfg.produtos.join(' · ') : 'todos os produtos do webhook')}
 ${item(wh ? 'ok' : '', 'Último webhook', wh ? `${quando(wh.quando)} · ${wh.evento || '?'}` : 'nenhum ainda')}
 ${item(contar('Purchase', 'enviado') ? 'ok' : '', 'Últimas 24 h', `Compras aceitas: ${contar('Purchase', 'enviado')} · com problema: ${contar('Purchase') - contar('Purchase', 'enviado')} · Reembolsos: ${contar('Reembolso')}`)}
 ${(st.alertas || []).map((a) => item('bad', `Alerta: ${a.tipo}`, `${quando(a.quando)} · ${a.detalhe || ''}`)).join('')}
 <p class="sm" style="margin:14px 0 2px"><b>Na página de vendas</b> (no &lt;head&gt;, todas as páginas):</p>
 <code style="${CODE}">${esc(`<script src="${origem}/v.js" async></script>`)}</code>
-<p class="sm" style="margin:0 0 2px"><b>No webhook da Kirvano</b> (venda aprovada, reembolso, chargeback):</p>
-<code style="${CODE}">${esc(`${origem}/w/kirvano`)}</code>
+${checkouts.filter((c) => c.pronto).map((c) => `<p class="sm" style="margin:0 0 2px"><b>No webhook da ${esc(c.nome)}</b> (venda aprovada, reembolso, chargeback):</p>
+<code style="${CODE}">${esc(`${origem}/w/${c.id}`)}</code>`).join('')}
 </div>
 <p class="mu sm" style="margin-top:14px">As telas passo a passo de cada etapa estão em construção. Enquanto isso, o seu assistente de IA configura pelo Hub (veja o AGENTS.md).</p>`);
 }

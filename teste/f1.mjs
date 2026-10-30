@@ -10,7 +10,7 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -128,7 +128,8 @@ try {
   }
   if (!subiu) throw new Error('o worker nao subiu em 90 s');
   const saude = await (await fetch(`${BASE}/saude`)).json();
-  ok('/saude ok com a tabela nova de envios', saude.ok === true && saude.versao === '0.1.0', JSON.stringify(saude));
+  const versao = JSON.parse(readFileSync(join(RAIZ, 'package.json'), 'utf8')).version;
+  ok('/saude ok, na versao do package.json', saude.ok === true && saude.versao === versao, JSON.stringify(saude));
   const entrar = await fetch(`${BASE}/lab/entrar`, { method: 'POST', redirect: 'manual', body: new URLSearchParams({ senha: SENHA }) });
   cookie = (entrar.headers.get('set-cookie') || '').split(';')[0];
   ok('entrou no Hub', entrar.status === 303 && cookie.startsWith('tl_sessao='));
@@ -253,6 +254,67 @@ try {
   ok('foi com o codigo de teste', chamadas.slice(-4).every((c) => c.corpo.test_event_code === 'TEST4821'));
   const q = await api('/lab/api/qualidade');
   ok('nota de qualidade por pixel', q.j['111111']?.web?.[0]?.event_match_quality?.composite_score === 9);
+
+  secao('outros checkouts, ponta a ponta');
+  await api('/lab/api/config', { pixels: ['111111'], produtos: [], codigo_teste: '' });
+  const perfis = await api('/lab/api/perfis');
+  ok('API lista os perfis prontos com o nivel', ['kirvano', 'kiwify', 'hotmart', 'eduzz', 'cakto', 'padrao']
+    .every((id) => perfis.j.prontos?.some((p) => p.id === id && p.nivel)) && perfis.j.outro === null);
+  const js2 = await (await fetch(`${BASE}/v.js`)).text();
+  ok('/v.js marca links de varios checkouts (Hotmart src, Cakto sck)', js2.includes('hotmart') && js2.includes('cakto') && js2.includes('"sck"'));
+  ok('CONTROLE: checkout desconhecido -> 404', (await fetch(`${BASE}/w/naoexiste`, { method: 'POST', body: '{}' })).status === 404);
+
+  await api('/lab/api/segredo', { nome: 'hotmart_token', valor: 'hottok-da-suite' });
+  const hot = {
+    event: 'PURCHASE_APPROVED', data: {
+      product: { id: 9, name: 'Curso H' }, buyer: { email: 'h@exemplo.com', name: 'Helo Dias', checkout_phone: '5521977776666' },
+      purchase: { transaction: 'HP-E2E', price: { value: 197, currency_value: 'BRL' }, origin: { src: VISITA } },
+    },
+  };
+  const rh = await fetch(`${BASE}/w/hotmart`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-HOTMART-HOTTOK': 'hottok-da-suite' }, body: JSON.stringify(hot) });
+  const eh = await envio('HP-E2E');
+  const ch = chamadasDe('HP-E2E')[0]?.corpo.data[0];
+  ok('Hotmart: aceito, enviado, ligado a visita', rh.status === 200 && eh?.status === 'enviado' && ch?.user_data?.fbc?.includes('IwAR_visita_da_suite'));
+  ok('CONTROLE: Hotmart com hottok errado -> 401', (await fetch(`${BASE}/w/hotmart`, { method: 'POST', headers: { 'X-HOTMART-HOTTOK': 'errado' }, body: JSON.stringify(hot) })).status === 401);
+
+  await api('/lab/api/segredo', { nome: 'padrao_token', valor: 'k-padrao-da-suite' });
+  const pad = {
+    orderId: 'PD-E2E', status: 'paid', customer: { name: 'Ivo Paz', email: 'i@exemplo.com', phone: '11933332222', ip: '2804::9' },
+    products: [{ id: 'm', name: 'Mentoria', priceInCents: 49700 }], trackingParameters: { src: null }, commission: { totalPriceInCents: 49700 },
+  };
+  await fetch(`${BASE}/w/padrao?k=k-padrao-da-suite`, { method: 'POST', body: JSON.stringify(pad) });
+  await envio('PD-E2E');
+  const cp = chamadasDe('PD-E2E')[0]?.corpo.data[0];
+  ok('Formato padrão (?k=): enviado com valor em reais e IP', cp?.custom_data?.value === 497 && cp?.user_data?.client_ip_address === '2804::9');
+
+  ok('CONTROLE: "outro" sem perfil nem segredo -> 404', (await fetch(`${BASE}/w/outro?k=x`, { method: 'POST', body: '{}' })).status === 404);
+  const exemploZ = { tipo_evento: 'venda.aprovada', codigo_venda: 'Z-E2E', valor_total: '149,90', comprador: { email: 'z@exemplo.com', nome: 'Zeca Luz' }, rastreio: { src: VISITA } };
+  await api('/lab/api/segredo', { nome: 'outro_token', valor: 'segredo-z' });
+  const n0z = chamadas.length;
+  ok('CONTROLE: captura com ?k errado -> 401', (await fetch(`${BASE}/w/outro?k=errado`, { method: 'POST', body: JSON.stringify(exemploZ) })).status === 401);
+  const cap = await fetch(`${BASE}/w/outro?k=segredo-z`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(exemploZ) });
+  ok('captura: guarda o exemplo (202) e NADA vai ao Meta', cap.status === 202 && chamadas.length === n0z);
+  const an = await api('/lab/api/analisar-exemplo', {});
+  ok('analisar-exemplo usa o capturado: campos e sugestao', Boolean(an.j.capturado) && an.j.campos?.length > 3 && an.j.sugestao?.campos?.src?.[0] === 'rastreio.src');
+  const perfilZ = {
+    nome: 'Checkout Z', eventos: { campos: ['tipo_evento'], aprovada: ['venda.aprovada'] },
+    campos: { pedido: 'codigo_venda', valor: 'valor_total', email: 'comprador.email', nome: 'comprador.nome', src: 'rastreio.src' },
+    autenticacao: { tipo: 'corpo', caminho: 'segredo' },
+  };
+  const prev = await api('/lab/api/analisar-exemplo', { exemplo: exemploZ, perfil: perfilZ });
+  ok('previa da leitura antes de salvar (sem dado pessoal inteiro)', prev.j.leitura?.tipo === 'aprovada' && prev.j.leitura?.pedido === 'Z-E2E'
+    && !JSON.stringify(prev.j.leitura).includes('z@exemplo.com') && prev.j.leitura.faltando.length === 0);
+  ok('CONTROLE: perfil ruim nao e salvo', (await api('/lab/api/perfil-outro', { perfil: { eventos: {}, campos: {} } })).status === 400);
+  ok('perfil do "outro" salvo', (await api('/lab/api/perfil-outro', { perfil: perfilZ })).j.ok === true);
+  ok('o exemplo capturado foi apagado ao salvar o perfil', (await api('/lab/api/analisar-exemplo', {})).status === 400);
+  // Formulario (application/x-www-form-urlencoded), com o segredo no corpo.
+  const form = 'segredo=segredo-z&tipo_evento=venda.aprovada&codigo_venda=Z-E2E&valor_total=149%2C90&comprador%5Bemail%5D=z%40exemplo.com&rastreio%5Bsrc%5D=' + VISITA;
+  const rz = await fetch(`${BASE}/w/outro`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form });
+  const ez = await envio('Z-E2E');
+  const cz = chamadasDe('Z-E2E')[0]?.corpo.data[0];
+  ok('"outro" por formulario: aceito e enviado com valor 149,90', rz.status === 200 && ez?.status === 'enviado' && cz?.custom_data?.value === 149.9);
+  ok('CONTROLE: "outro" com segredo errado -> 401',
+    (await fetch(`${BASE}/w/outro`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.replace('segredo-z', 'nao') })).status === 401);
 
   secao('painel');
   const painel = await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text();

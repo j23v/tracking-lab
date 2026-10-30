@@ -91,14 +91,17 @@ export async function limparVisitas(env) {
  * linha so. Caminho e nome neutros de proposito: bloqueador de anuncio derruba
  * "pixel", "track" e parecidos.
  *
- * `dominios` e `parametro` vem do adaptador do checkout configurado.
+ * `grupos` = [{ dominios, parametro }] dos perfis de checkout (todos os prontos
+ * e o "outro" do cliente): o link de cada checkout recebe o parametro que ESSE
+ * checkout devolve no webhook (`src` na Kirvano, `sck` na Cakto...).
  */
-export function scriptDaPagina(origem, { dominios, parametro }) {
-  // Ex.: (^|\.)(kirvano\.com)$ -- o JSON.stringify abaixo cuida das barras.
-  const re = `(^|\\.)(${dominios.map((d) => d.replace(/\./g, '\\.')).join('|')})$`;
-  const seletor = dominios.map((d) => `a[href*="${d}"]`).join(',');
+export function scriptDaPagina(origem, grupos) {
+  const g = grupos.filter((x) => x?.dominios?.length && x.parametro);
+  // Ex.: [["(^|\\.)(kirvano\\.com)$","src"], ...] -- o JSON.stringify cuida das barras.
+  const regras = g.map((x) => [`(^|\\.)(${x.dominios.map((d) => d.replace(/\./g, '\\.')).join('|')})$`, x.parametro]);
+  const seletor = g.flatMap((x) => x.dominios).map((d) => `a[href*="${d}"]`).join(',') || 'a[data-tl-nada]';
   const js = `(function(){try{
-var W=${JSON.stringify(origem)},K='tl_v',F='tl_fbclid',P=${JSON.stringify(parametro)},R=new RegExp(${JSON.stringify(re)}),S=${JSON.stringify(seletor)};
+var W=${JSON.stringify(origem)},K='tl_v',F='tl_fbclid',G=${JSON.stringify(regras)}.map(function(r){return [new RegExp(r[0]),r[1]];}),S=${JSON.stringify(seletor)};
 function ck(n){var m=document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):'';}
 function ler(k){try{return localStorage.getItem(k)||'';}catch(e){return '';}}
 function por(k,v){try{localStorage.setItem(k,v);}catch(e){}}
@@ -109,7 +112,7 @@ if(fb){por(F,fb+'|'+Date.now());}else{var s=ler(F).split('|');fb=s[0]||'';fbEm=s
 function enviar(){var d=JSON.stringify({id:id,fbclid:fb,fbclid_em:fbEm,fbc:ck('_fbc'),fbp:ck('_fbp'),url:location.href.split('#')[0].slice(0,500)});
 try{if(navigator.sendBeacon&&navigator.sendBeacon(W+'/visita',d))return;}catch(e){}
 try{fetch(W+'/visita',{method:'POST',body:d,keepalive:true,mode:'no-cors'});}catch(e){}}
-function marcar(el){try{var u=new URL(el.href);if(!R.test(u.hostname))return;if(u.searchParams.get(P)!==id){u.searchParams.set(P,id);el.href=u.toString();}}catch(e){}}
+function marcar(el){try{var u=new URL(el.href),P='';for(var i=0;i<G.length;i++){if(G[i][0].test(u.hostname)){P=G[i][1];break;}}if(!P)return;if(u.searchParams.get(P)!==id){u.searchParams.set(P,id);el.href=u.toString();}}catch(e){}}
 function todos(){var l=document.querySelectorAll(S);for(var i=0;i<l.length;i++){marcar(l[i]);}}
 document.addEventListener('click',function(e){var el=e.target&&e.target.closest?e.target.closest(S):null;if(el){marcar(el);enviar();}},true);
 setTimeout(function(){todos();enviar();},1500);

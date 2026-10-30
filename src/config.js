@@ -2,19 +2,27 @@
 // atualizar nunca apaga) e os segredos (chave do Meta, token do webhook), estes
 // cifrados pelo cofre.
 
+import { validarPerfil } from './checkouts/perfil.js';
+import { PERFIS } from './checkouts/perfis.js';
 import { cifrar, decifrar, dica } from './cofre.js';
 
 export const PADRAO = {
   pixels: [],          // ids dos pixels (conjuntos de dados) que recebem a Compra
   dominio: '',         // https://pagina-de-vendas -- vira o event_source_url sem visita
-  checkout: 'kirvano',
+  checkouts: [],       // os que o cliente usa (o Hub mostra so esses); webhooks de todos ficam abertos
+  perfil_outro: null,  // o perfil montado pelo cliente para um checkout sem perfil pronto
   produtos: [],        // nomes aceitos; vazio = todos os produtos do webhook
   pais: 'br',
   moeda: 'BRL',
   codigo_teste: '',    // TEST... do Gerenciador: preenchido = tudo vai como TESTE
 };
 
-export const SEGREDOS = ['meta_token', 'kirvano_token'];
+export const IDS_DE_CHECKOUT = [...Object.keys(PERFIS), 'outro'];
+
+/** meta_token, ou o token do webhook de um checkout: `<id>_token`. */
+export function segredoValido(nome) {
+  return nome === 'meta_token' || IDS_DE_CHECKOUT.some((id) => nome === `${id}_token`);
+}
 
 /** Valida e limpa; devolve { ok, config } ou { ok: false, erro }. */
 export function validarConfig(parcial) {
@@ -34,9 +42,19 @@ export function validarConfig(parcial) {
       c.dominio = `${u.protocol}//${u.host}/`;
     } else c.dominio = '';
   }
-  if ('checkout' in parcial) {
-    if (parcial.checkout !== 'kirvano') return erro('checkout: por enquanto só "kirvano"');
-    c.checkout = 'kirvano';
+  // `checkout` (um so) e o nome antigo, da 0.1.0.
+  if ('checkouts' in parcial || 'checkout' in parcial) {
+    const l = [...new Set((Array.isArray(parcial.checkouts) ? parcial.checkouts : [parcial.checkouts ?? parcial.checkout])
+      .map((x) => String(x ?? '').trim().toLowerCase()).filter(Boolean))];
+    const ruim = l.find((x) => !IDS_DE_CHECKOUT.includes(x));
+    if (ruim) return erro(`checkout desconhecido: "${ruim}" (use ${IDS_DE_CHECKOUT.join(', ')})`);
+    c.checkouts = l;
+  }
+  if ('perfil_outro' in parcial) {
+    if (parcial.perfil_outro === null) c.perfil_outro = null;
+    else {
+      try { c.perfil_outro = validarPerfil(parcial.perfil_outro); } catch (e) { return erro(`perfil: ${e.message}`); }
+    }
   }
   if ('produtos' in parcial) {
     c.produtos = (Array.isArray(parcial.produtos) ? parcial.produtos : [parcial.produtos])
@@ -68,6 +86,11 @@ export async function lerConfig(env) {
   for (const r of results) {
     try { cfg[r.chave] = JSON.parse(r.valor); } catch { /* valor estranho: fica o padrao */ }
   }
+  // 0.1.0 gravava `checkout` (um so).
+  if (!cfg.checkouts.length) {
+    const antigo = await env.DB.prepare("SELECT valor FROM config WHERE chave = 'checkout'").first();
+    if (antigo) try { cfg.checkouts = [JSON.parse(antigo.valor)]; } catch { /* ignora */ }
+  }
   return cfg;
 }
 
@@ -84,7 +107,7 @@ export async function gravarConfig(env, parcial) {
 }
 
 export async function gravarSegredo(env, nome, valor) {
-  if (!SEGREDOS.includes(nome)) throw new Error(`segredo desconhecido: ${nome}`);
+  if (!segredoValido(nome)) throw new Error(`segredo desconhecido: ${nome}`);
   const limpo = String(valor || '').trim();
   await env.DB.prepare(
     `INSERT INTO segredos (nome, cifrado, dica, quando) VALUES (?1, ?2, ?3, ?4)

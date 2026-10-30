@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Página de vendas de teste</title>
+<script>
+  // O Worker vem de ?w=<origem> (ex.: ?w=http://127.0.0.1:8798). Simula o _fbp que o pixel cria.
+  var W = new URLSearchParams(location.search).get('w') || 'http://127.0.0.1:8798';
+  document.cookie = '_fbp=fb.1.1793100000000.4242424242; path=/';
+  var s = document.createElement('script'); s.src = W + '/v.js'; s.async = true; document.head.appendChild(s);
+</script>
+</head>
+<body>
+  <h1>Página de vendas de teste</h1>
+  <p><a id="comprar" href="https://pay.kirvano.com/abc123?utm_source=FB">Comprar agora</a></p>
+  <p><a id="outro" href="https://exemplo.com/nao-e-checkout">Link que não é do checkout</a></p>
+  <p id="tarde"></p>
+  <script>
+    // Botão que aparece DEPOIS (construtores de página fazem isso): também tem que ser marcado.
+    setTimeout(function () {
+      document.getElementById('tarde').innerHTML = '<a id="tardio" href="https://pay.kirvano.com/abc123">Comprar (botão tardio)</a>';
+    }, 2500);
+  </script>
+</body>
+</html>

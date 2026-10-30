@@ -32,13 +32,42 @@ Entre com `POST /lab/entrar` (formulário, campo `senha`) e use o cookie `tl_ses
 | pixel, domínio, produtos | `POST /lab/api/config` `{"pixels":["123..."],"dominio":"loja.com","produtos":["Nome exato do produto na Kirvano"]}` |
 | modo teste | `POST /lab/api/config` `{"codigo_teste":"TEST..."}` (vazio `""` = valendo) |
 | chave do Meta | `POST /lab/api/segredo` `{"nome":"meta_token","valor":"EAA..."}` (conferida no Meta antes de gravar; configure o pixel antes) |
-| token do webhook | `POST /lab/api/segredo` `{"nome":"kirvano_token","valor":"..."}` |
+| checkouts usados | `POST /lab/api/config` `{"checkouts":["hotmart"]}` (ids: kirvano, kiwify, hotmart, eduzz, cakto, padrao, outro) |
+| perfis e endereços de webhook | `GET /lab/api/perfis` |
+| token do webhook | `POST /lab/api/segredo` `{"nome":"<checkout>_token","valor":"..."}` (ex.: `hotmart_token` = o hottok; `kiwify_token` = o token do webhook; `eduzz_token` = o originSecret; `cakto_token` = o secret; `padrao_token`/`outro_token` = um segredo que você cria e põe na URL como `?k=`) |
+| montar o "Outro checkout" | `POST /lab/api/analisar-exemplo` `{"exemplo":{...}}` → campos e sugestão; repita com `"perfil":{...}` para ver a leitura; salve com `POST /lab/api/perfil-outro` `{"perfil":{...}}` |
 | teste com controle | `POST /lab/api/teste-controle` (precisa do modo teste) |
 | nota do Meta | `GET /lab/api/qualidade` |
 | envios recentes | `GET /lab/api/envios?horas=24` |
 
+### Checkout sem perfil pronto ("Outro checkout")
+1. Pegue um webhook de exemplo, de um destes jeitos:
+   - do histórico de webhooks do checkout;
+   - pela **captura**: grave um `outro_token` (um segredo qualquer) e cadastre no checkout a URL
+     `/w/outro?k=<esse segredo>`. Enquanto não há perfil, o Tracking Lab só guarda o último
+     webhook (24 h, no banco da própria pessoa) e não manda nada ao Meta.
+
+   Não use serviços de terceiros para isso: o exemplo tem dados de comprador.
+2. Mande o exemplo para `analisar-exemplo` (sem `exemplo`, ele usa o capturado). Com a sugestão,
+   monte o perfil:
+   - `eventos.campos` e o valor exato de `aprovada` (e de `reembolso`/`chargeback`, se houver);
+   - `campos.pedido`, `campos.email` e o que mais existir (`valor` em reais ou `valorCentavos`,
+     `telefone`, `ip`, `src`…);
+   - `produtos`;
+   - `autenticacao`: segredo na URL `?k=` por padrão; ou `{"tipo":"corpo","caminho":"..."}`;
+     ou `{"tipo":"hmac","algoritmo":"SHA-256","cabecalho":"X-Signature"}`;
+   - `pagina` (`dominios` do checkout e o `parametro` que ele devolve no webhook).
+3. Confira a `leitura` antes de salvar. **Nunca** ponha em `aprovada` um status que não seja venda
+   paga: isso mandaria Compra falsa ao Meta.
+4. O endereço do webhook é `/w/outro`.
+
+Se a plataforma deixa escolher o formato do webhook (ou se a pessoa usa Zapier/Make/n8n), o
+**Formato padrão** (`/w/padrao`) é mais simples. É o mesmo formato de pedido que a UTMify publica
+(`orderId`, `status: paid|refunded|chargedback`, `customer`, `products`, `trackingParameters`,
+`commission.totalPriceInCents`).
+
 O que colar na página e a URL do webhook aparecem no painel (`/lab`). Ordem que funciona:
-1. token do webhook;
+1. checkouts usados e o token do webhook de cada um;
 2. pixel;
 3. chave do Meta;
 4. modo teste e teste com controle;

@@ -121,7 +121,9 @@ export async function montarEvento(venda, visita, cfg, agoraSeg, nome = 'Purchas
   const dedupNavegador = nome === 'Purchase' ? Boolean(venda.idDedup) : true;
   const eventId = `${nome}-${nome === 'Purchase' && venda.idDedup ? venda.idDedup : venda.pedido}`;
 
-  const custom = { currency: String(cfg.moeda || 'BRL').toUpperCase(), content_type: 'product', order_id: venda.pedido };
+  // A moeda do checkout (quando ele manda) ganha da configuracao.
+  const moeda = /^[a-z]{3}$/i.test(String(venda.moeda || '')) ? venda.moeda : cfg.moeda || 'BRL';
+  const custom = { currency: String(moeda).toUpperCase(), content_type: 'product', order_id: venda.pedido };
   if (nome === 'Reembolso') custom.tipo = venda.tipo === 'chargeback' ? 'chargeback' : 'reembolso';
   const valor = valorNumerico(venda.valor);
   if (valor !== null) custom.value = valor;
