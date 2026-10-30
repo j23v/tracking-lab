@@ -15,7 +15,7 @@ import {
 
 // ⚠️ Sem `export` aqui: o modulo principal do Worker so pode exportar handlers
 // (o runtime recusa subir com uma constante exportada -- visto na F0).
-const VERSAO = '0.0.1';
+const VERSAO = '0.0.2';
 const TABELAS = ['alertas', 'config', 'envios', 'segredos', 'visitas'];
 
 const html = (corpo, status = 200, extra = {}) => new Response(corpo, {
