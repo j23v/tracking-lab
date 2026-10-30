@@ -1,7 +1,6 @@
-// A marca do Tracking Lab: a logo do dono (o tubo de laboratorio em forma de
-// infinito), com o liquido verde baixado ate logo abaixo do topo dos furos e o
-// fundo tirado para o tema escuro do Hub (30/10/2026; originais e versoes
-// grandes fora deste projeto).
+// A marca do Tracking Lab: a logo ORIGINAL do dono (o tubo de laboratorio em
+// forma de infinito, a versao de fundo escuro), so com o fundo preto tirado para
+// o tema do Hub (decisao do dono, 30/10/2026; os originais ficam fora deste projeto).
 //
 // Os arquivos sao .bin de proposito: o wrangler empacota *.bin como dados por
 // padrao, sem regra no wrangler.jsonc -- que a atualizacao do cliente nao toca.

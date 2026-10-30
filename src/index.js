@@ -30,7 +30,7 @@ import {
 
 // ⚠️ Sem `export` aqui: o modulo principal do Worker so pode exportar handlers
 // (o runtime recusa subir com uma constante exportada -- visto na F0).
-const VERSAO = '0.3.1';
+const VERSAO = '0.3.2';
 const TABELAS = ['alertas', 'config', 'envios', 'segredos', 'visitas'];
 // A origem publica do Tracking Lab (versoes novas e a rotina de atualizacao).
 const ORIGEM_REPO = 'j23v/tracking-lab';
