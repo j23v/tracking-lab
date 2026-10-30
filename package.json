@@ -1,12 +1,12 @@
 {
   "name": "tracking-lab",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
-    "testar": "node teste/f0.mjs"
+    "testar": "node teste/f0.mjs && node teste/f1.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.122.0"

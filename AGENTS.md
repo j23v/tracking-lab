@@ -23,6 +23,27 @@ Meta pelo servidor. Fale simples, em passos curtos, e confirme antes de agir.
 - Faça **só** o que a etapa pede. Antes de clicar ou mudar algo em qualquer painel (Kirvano,
   Meta, WordPress), diga o que vai fazer e espere o "pode".
 
+## Configurar pela API do Hub (enquanto as telas das etapas não ficam prontas)
+Entre com `POST /lab/entrar` (formulário, campo `senha`) e use o cookie `tl_sessao` nas chamadas:
+
+| O quê | Chamada |
+|---|---|
+| ver tudo | `GET /lab/api/status` |
+| pixel, domínio, produtos | `POST /lab/api/config` `{"pixels":["123..."],"dominio":"loja.com","produtos":["Nome exato do produto na Kirvano"]}` |
+| modo teste | `POST /lab/api/config` `{"codigo_teste":"TEST..."}` (vazio `""` = valendo) |
+| chave do Meta | `POST /lab/api/segredo` `{"nome":"meta_token","valor":"EAA..."}` (conferida no Meta antes de gravar; configure o pixel antes) |
+| token do webhook | `POST /lab/api/segredo` `{"nome":"kirvano_token","valor":"..."}` |
+| teste com controle | `POST /lab/api/teste-controle` (precisa do modo teste) |
+| nota do Meta | `GET /lab/api/qualidade` |
+| envios recentes | `GET /lab/api/envios?horas=24` |
+
+O que colar na página e a URL do webhook aparecem no painel (`/lab`). Ordem que funciona:
+1. token do webhook;
+2. pixel;
+3. chave do Meta;
+4. modo teste e teste com controle;
+5. tirar o modo teste.
+
 ## Chave do Meta e token do webhook
 - Se a pessoa colar a chave no chat perguntando se é ela: confirme com naturalidade (a chave do
   Meta começa com `EAA`) e salve pelo conector do Tracking Lab, quando houver. Sem conector, diga

@@ -3,8 +3,9 @@
 Suas vendas do checkout chegam ao Meta pelo servidor, ligadas ao clique do anúncio, com um Hub que
 ensina e confere cada passo.
 
-> **Versão de teste (F0).** Por enquanto só a instalação: banco, senha do Hub, login e conferência.
-> O envio das vendas ao Meta vem nas próximas versões.
+> **Versão 0.1 (em teste).** Já funcionam a instalação, o envio das vendas da **Kirvano** ao Meta
+> (Compra e Reembolso, ligados à visita da página, com nova tentativa automática) e a API do Hub.
+> As telas passo a passo do Hub vêm na próxima versão.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/j23v/tracking-lab)
 
@@ -18,9 +19,16 @@ Usa uma IA que roda comandos (Claude Code, Codex, Cursor, Goose)? Peça: *"insta
 seguindo o AGENTS.md"*.
 
 ## Atualizações
-A sua cópia traz a rotina **Atualizar Tracking Lab** (aba *Actions* do seu repositório). Ela roda
-toda segunda, ou quando você aperta *Run workflow*. A Cloudflare publica a versão nova sozinha. A
-configuração do seu Hub não é tocada.
+A rotina **Atualizar Tracking Lab** traz o código novo toda segunda, ou quando você aperta *Run
+workflow* na aba *Actions*. A Cloudflare publica a versão nova sozinha. A configuração do seu Hub
+não é tocada.
+
+⚠️ A Cloudflare **não copia** essa rotina na instalação. Coloque-a uma vez (1 minuto) com os
+passos abaixo; o Hub vai ganhar um botão para isso:
+1. No seu repositório: **Add file → Create new file**.
+2. Nome: `.github/workflows/atualizar.yml`.
+3. Cole o conteúdo [deste arquivo](https://github.com/j23v/tracking-lab/blob/main/.github/workflows/atualizar.yml).
+4. Aperte **Commit**.
 
 ## Licença
 O código fica visível porque o botão da Cloudflare exige um repositório público. O uso segue a

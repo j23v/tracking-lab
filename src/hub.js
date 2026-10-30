@@ -45,17 +45,40 @@ adicione (ou edite) o segredo <b>SENHA_HUB</b> com pelo menos 12 caracteres → 
 
 const item = (estado, titulo, detalhe) => `<div class="ck"><span class="ic ${estado}">${estado === 'ok' ? '✓' : estado === 'bad' ? '!' : '·'}</span><div><b>${esc(titulo)}</b><span class="mu sm">${esc(detalhe)}</span></div></div>`;
 
-/** Painel da F0: prova que o botao instalou tudo; as etapas reais vem depois. */
-export function paginaPainel(st) {
+const CODE = 'font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;background:var(--sf2);border:1px solid var(--bd);border-radius:7px;padding:8px 10px;display:block;overflow:auto;white-space:pre;margin:4px 0 10px';
+
+/**
+ * Painel: a instalacao e o estado do motor. As telas passo a passo de cada
+ * etapa sao a F2; por enquanto a configuracao entra pela API (/lab/api/*),
+ * que o assistente de IA usa.
+ */
+export function paginaPainel(st, origem = '') {
   const quando = (ms) => new Date(ms).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   const faltam = st.tabelasFaltando.length;
+  const cfg = st.config || { pixels: [], produtos: [] };
+  const seg = Object.fromEntries((st.segredos || []).map((s) => [s.nome, s]));
+  const contar = (ev, status) => (st.envios24h || []).filter((e) => e.evento === ev && (!status || e.status === status)).reduce((s, e) => s + e.n, 0);
+  const wh = st.ultimoWebhook;
   return pagina('Hub — Tracking Lab', `<div class="card"><div class="row"><h1>Instalação</h1>
 <form method="post" action="/lab/sair"><button type="submit" style="margin:0;background:var(--sf2);color:var(--tx)">Sair</button></form></div>
-<p class="mu">Versão ${esc(st.versao)}. Esta é a prova do botão: confere se a Cloudflare criou tudo.</p>
+<p class="mu">Versão ${esc(st.versao)}.</p>
 ${item(st.banco === 'ok' && !faltam ? 'ok' : 'bad', 'Banco de dados', st.banco !== 'ok' ? `não respondeu (${st.banco})` : faltam ? `faltam tabelas: ${st.tabelasFaltando.join(', ')}` : `${st.tabelas.length} tabelas criadas`)}
 ${item('ok', 'Senha do Hub', 'criada na instalação')}
 ${item(st.ultimoCron ? 'ok' : '', 'Rotina a cada 10 minutos', st.ultimoCron ? `rodou às ${quando(st.ultimoCron)}` : 'ainda não rodou (espere até 10 min)')}
-${item(st.segredos.length ? 'ok' : '', 'Cofre', st.segredos.length ? st.segredos.map((s) => `${s.nome}: ${s.dica}`).join(' · ') : 'vazio (a chave do Meta entra na próxima fase)')}
 </div>
-<p class="mu sm" style="margin-top:14px">Próximas etapas (em construção): suas plataformas · chave do Meta · página de vendas · checkout · anti-duplicação · teste com controle · ligar · resultados.</p>`);
+<div class="card" style="margin-top:14px"><h1>Rastreamento</h1>
+<p class="mu">${cfg.codigo_teste ? `<b>Modo teste</b> (${esc(cfg.codigo_teste)}): as compras aparecem em "Testar eventos" e não valem nas campanhas.` : 'Valendo: as compras vão para as campanhas.'}</p>
+${item(cfg.pixels.length ? 'ok' : '', 'Pixel', cfg.pixels.length ? cfg.pixels.join(', ') : 'falta configurar')}
+${item(seg.meta_token ? 'ok' : '', 'Chave do Meta', seg.meta_token ? `${seg.meta_token.dica} · conferida no Meta` : 'falta')}
+${item(seg.kirvano_token ? 'ok' : '', 'Token do webhook (Kirvano)', seg.kirvano_token ? seg.kirvano_token.dica : 'falta')}
+${item(cfg.produtos.length ? 'ok' : '', 'Produtos', cfg.produtos.length ? cfg.produtos.join(' · ') : 'todos os produtos do webhook')}
+${item(wh ? 'ok' : '', 'Último webhook', wh ? `${quando(wh.quando)} · ${wh.evento || '?'}` : 'nenhum ainda')}
+${item(contar('Purchase', 'enviado') ? 'ok' : '', 'Últimas 24 h', `Compras aceitas: ${contar('Purchase', 'enviado')} · com problema: ${contar('Purchase') - contar('Purchase', 'enviado')} · Reembolsos: ${contar('Reembolso')}`)}
+${(st.alertas || []).map((a) => item('bad', `Alerta: ${a.tipo}`, `${quando(a.quando)} · ${a.detalhe || ''}`)).join('')}
+<p class="sm" style="margin:14px 0 2px"><b>Na página de vendas</b> (no &lt;head&gt;, todas as páginas):</p>
+<code style="${CODE}">${esc(`<script src="${origem}/v.js" async></script>`)}</code>
+<p class="sm" style="margin:0 0 2px"><b>No webhook da Kirvano</b> (venda aprovada, reembolso, chargeback):</p>
+<code style="${CODE}">${esc(`${origem}/w/kirvano`)}</code>
+</div>
+<p class="mu sm" style="margin-top:14px">As telas passo a passo de cada etapa estão em construção. Enquanto isso, o seu assistente de IA configura pelo Hub (veja o AGENTS.md).</p>`);
 }
