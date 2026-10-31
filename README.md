@@ -7,7 +7,7 @@ ensina e confere cada passo.
 > luz: suas plataformas (lidas da página), chave do Meta, página, checkout, anti-duplicação, teste
 > com controle, ligar, resultados, privacidade, reembolso e atualizações. O botão **Assistente**
 > traz uma IA grátis que explica os passos, na sua própria conta Cloudflare, liga a sua IA ao
-> Tracking Lab (Claude, ChatGPT, Goose, Cursor…) ou dá um texto pronto para colar em qualquer outra.
+> Tracking Lab (Claude, ChatGPT, Goose, Gemini, Cursor…) ou dá um texto pronto para colar em qualquer outra.
 > Já funcionam a instalação e o envio das vendas ao Meta (Compra e
 > Reembolso, ligados à visita da página, com nova tentativa automática). Checkouts com perfil
 > pronto: **Kirvano** (confirmado em vendas reais), **Kiwify**, **Hotmart**, **Eduzz** e **Cakto**

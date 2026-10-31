@@ -671,6 +671,8 @@ async function enviarAoChat() {
   $('#chatTexto')?.focus();
 }
 
+const botaoGoose = (u) => `<a class="btn sm pri" href="goose://extension?url=${encodeURIComponent(u)}&type=streamable_http&id=tracking-lab&name=${encodeURIComponent('Tracking Lab')}&description=${encodeURIComponent('Vendas do checkout ao Meta pelo servidor')}">Adicionar ao Goose</a>`;
+
 const IAS = {
   claude: { nome: 'Claude', passos: (u) => [
     'No Claude: <b>Configurações → Conectores → Adicionar conector personalizado</b>.',
@@ -683,9 +685,17 @@ const IAS = {
     'Numa conversa nova, ative o conector e escreva: <i>"continue meu Tracking Lab"</i>.',
   ] },
   goose: { nome: 'Goose', passos: (u) => [
-    `Com o Goose instalado, um clique: <a class="btn sm pri" href="goose://extension?url=${encodeURIComponent(u)}&type=streamable_http&id=tracking-lab&name=${encodeURIComponent('Tracking Lab')}&description=${encodeURIComponent('Vendas do checkout ao Meta pelo servidor')}">Adicionar ao Goose</a>`,
+    `Com o Goose instalado, um clique: ${botaoGoose(u)}`,
     `Ou à mão: <b>Extensões → Adicionar extensão personalizada</b> · tipo <b>Streamable HTTP</b>. Endereço:${codigo(u)}`,
     'Numa conversa nova, escreva: <i>"continue meu Tracking Lab"</i>.',
+  ] },
+  gemini: { nome: 'Gemini', passos: (u) => [
+    'O caminho mais simples é usar o Gemini dentro do Goose, um aplicativo gratuito. Instale o <a href="https://goose-docs.ai" target="_blank" rel="noopener">Goose</a> no computador.',
+    'Crie a chave do Gemini no <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Há um plano grátis, com limites definidos pelo Google. Essa chave é só do Goose: não cole no Hub.',
+    'No Goose: <b>Settings → Models → Configure Providers → Google Gemini → Configure</b>. Cole a chave e aperte <b>Submit</b>.',
+    `Ligue o Tracking Lab ao Goose: ${botaoGoose(u)}`,
+    'Numa conversa nova, escreva: <i>"continue meu Tracking Lab"</i>.',
+    `Prefere o app do Gemini? O conector depende do seu plano e do seu país. Veja em <b>Configurações e ajuda → Apps conectados</b> se há a opção de adicionar um app personalizado. Se houver, use este endereço:${codigo(u)}Se não houver, use o Goose ou a aba <b>Só copiar e colar</b>.`,
   ] },
   outras: { nome: 'Cursor / Claude Code', passos: (u) => [
     `Cursor (<code>mcp.json</code>):${codigo(JSON.stringify({ mcpServers: { 'tracking-lab': { url: u } } }, null, 2))}`,

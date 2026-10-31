@@ -237,7 +237,8 @@ async function atender(msg, env, origem, versao) {
     }
     if (r === null) return falha(-32602, `ferramenta desconhecida: ${params?.name}`);
     if (r.erro) return resultado({ content: [{ type: 'text', text: r.erro }], isError: true });
-    return resultado({ content: [{ type: 'text', text: r.texto }], ...(r.dados ? { structuredContent: r.dados } : {}) });
+    // Ha IA que so le os dados e ignora o texto: o texto vai nos dois.
+    return resultado({ content: [{ type: 'text', text: r.texto }], ...(r.dados ? { structuredContent: { texto: r.texto, ...r.dados } } : {}) });
   }
   return falha(-32601, `método não suportado: ${method}`);
 }

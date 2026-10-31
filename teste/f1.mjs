@@ -405,6 +405,7 @@ try {
   ok('CONTROLE: nao existe ferramenta de ligar', !lista.some((t) => /ligar/.test(t.name)));
   const s1 = await ferr('tl_status');
   ok('tl_status: etapas e proxima', s1.dados?.etapas?.length === 11 && /Chave do Meta/.test(s1.txt) && /compras aceitas/.test(s1.txt));
+  ok('CONTROLE: quem so le os dados tambem recebe a proxima etapa', s1.dados?.texto === s1.txt && /Próxima etapa: /.test(s1.dados?.texto || ''));
   const rp = await ferr('tl_receita', { etapa: 'pagina' });
   ok('tl_receita pagina: a linha e a receita do construtor detectado', rp.txt.includes(`${BASE}/v.js`) && /WordPress/.test(rp.txt) && !rp.txt.includes('<b>'));
   const rc = await ferr('tl_receita', { etapa: 'checkout', plataforma: 'hotmart' });
