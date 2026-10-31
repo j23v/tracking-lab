@@ -23,6 +23,11 @@ Meta pelo servidor. Fale simples, em passos curtos, e confirme antes de agir.
 - Faça **só** o que a etapa pede. Antes de clicar ou mudar algo em qualquer painel (Kirvano,
   Meta, WordPress), diga o que vai fazer e espere o "pode".
 
+## A IA da casa
+No Hub, o botão **Assistente** abre um chat grátis, com um modelo aberto na conta Cloudflare da
+pessoa. Ele só explica os passos; a única coisa que salva é a chave do Meta colada no chat, que é
+conferida no Meta. Para agir de verdade, use o conector.
+
 ## O conector (o melhor caminho)
 No Hub, o botão **Assistente** cria o endereço do conector (`/mcp/<segredo>`, um servidor MCP). Com
 ele ligado, você tem as ferramentas `tl_*`: comece por `tl_status` e use `tl_receita` para o passo

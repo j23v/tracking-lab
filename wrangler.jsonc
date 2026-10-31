@@ -16,6 +16,8 @@
       "migrations_dir": "migrations"
     }
   ],
+  // A IA da casa (src/ia.js). Copia antiga nao recebe isto pela atualizacao: o codigo funciona sem.
+  "ai": { "binding": "AI" },
   // UM cron so: a conta gratis aceita poucos, e o cliente pode ter outros Workers.
   "triggers": { "crons": ["*/10 * * * *"] },
   "observability": { "enabled": true }

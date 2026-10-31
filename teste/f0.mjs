@@ -97,7 +97,7 @@ try {
   wrangler(['d1', 'migrations', 'apply', 'DB', '--local', '--persist-to', `"${estado}"`]);
   ok('migracao aplicada no D1 local', true);
 
-  worker = spawn(WR, ['dev', '--port', String(PORTA), '--ip', '127.0.0.1', '--persist-to', `"${estado}"`,
+  worker = spawn(WR, ['dev', '--local', '--port', String(PORTA), '--ip', '127.0.0.1', '--persist-to', `"${estado}"`,
     '--test-scheduled', '--var', `SENHA_HUB:${SENHA}`, '--show-interactive-dev-session=false'],
   { cwd: RAIZ, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const fim = Date.now() + 90000;

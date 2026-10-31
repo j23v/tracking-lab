@@ -37,7 +37,7 @@ Regras:
 6. Nunca gere a chave do Meta por outra BM para fugir de um bloqueio do Meta. Nunca ponha Compra (Purchase) no navegador da página.
 7. No "Outro checkout", nunca ponha em "aprovada" um status que não seja venda PAGA.`;
 
-const ETAPA_IDS = ['plataformas', 'chave', 'pagina', 'checkout', 'duplicacao', 'teste', 'ligar', 'resultados', 'privacidade', 'reembolso', 'atualizacoes'];
+export const ETAPA_IDS = ['plataformas', 'chave', 'pagina', 'checkout', 'duplicacao', 'teste', 'ligar', 'resultados', 'privacidade', 'reembolso', 'atualizacoes'];
 
 const FERRAMENTAS = [
   { name: 'tl_status', title: 'Estado do Tracking Lab', description: 'As 11 etapas com a luz de cada uma (ok/meio/bad/vazia), a próxima etapa, os alertas e os números das últimas 24 h. Comece por aqui.', inputSchema: { type: 'object', properties: {} }, annotations: { readOnlyHint: true } },
@@ -80,7 +80,7 @@ export async function criarConector(env, origem) {
 
 const LUZ = { ok: 'OK', meio: 'falta pouco', bad: 'PROBLEMA', '': 'a fazer', opc: 'opcional' };
 
-function textoStatus(st) {
+export function textoStatus(st) {
   const proxima = st.etapas.find((e) => !e.opcional && e.luz !== 'ok');
   const compras = (st.envios24h || []).filter((e) => e.evento === 'Purchase' && !e.teste);
   const aceitas = compras.filter((e) => e.status === 'enviado').reduce((s, e) => s + e.n, 0);
@@ -94,7 +94,7 @@ function textoStatus(st) {
   ].join('\n');
 }
 
-function receita(etapa, st, origem, plataforma) {
+export function receita(etapa, st, origem, plataforma) {
   const cfg = st.config || {};
   const px = (cfg.pixels || []).join(', ') || '(ainda sem pixel)';
   const usados = cfg.checkouts || [];

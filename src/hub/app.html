@@ -122,6 +122,11 @@ td.n{text-align:right;font-family:var(--mono)}
 .fundo-ia{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20}
 .painel-ia{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--p1);border-left:1px solid var(--borda2);z-index:21;padding:20px 22px 40px;overflow:auto;animation:entra .2s}
 @keyframes entra{from{transform:translateX(24px);opacity:0}}
+.chat{display:grid;gap:8px;margin:12px 0;max-height:calc(100vh - 330px);min-height:180px;overflow:auto;align-content:start}
+.msg{padding:9px 12px;border-radius:var(--r);border:1px solid var(--borda);background:var(--p2);font-size:14px;overflow-wrap:anywhere;max-width:92%}
+.msg.eu{justify-self:end;background:var(--verde-f);border-color:var(--verde2)}
+.msg.erro{border-left:3px solid var(--amar)}
+.msg code{font:12.5px var(--mono);color:#cfe9d6}
 .menu-mob{display:none}
 @media (max-width:860px){
   .casca{grid-template-columns:1fr}
@@ -626,11 +631,45 @@ TELAS.atualizacoes.ligar = async (raiz) => {
 };
 
 // ------------------------------------------------------------------ o assistente
-// O painel que liga a IA do cliente ao Hub: o conector (a IA ganha os "botoes" do
-// Tracking Lab, src/mcp.js) ou o texto pronto para colar em qualquer IA.
+// O painel com a IA da casa (src/ia.js), o conector da IA do cliente (a IA ganha os
+// "botoes" do Tracking Lab, src/mcp.js) e o texto pronto para colar em qualquer IA.
 let conectorUrl = '';   // o endereco so existe na tela logo depois de criado
-let abaIA = 'conectar';
+let abaIA = 'casa';
 let iaEscolhida = 'claude';
+const conversa = [];    // a conversa com a IA da casa: so nesta tela, nada fica guardado
+let esperandoIA = false;
+
+const CHAVE_NO_TEXTO = /\bEAA[A-Za-z0-9_-]{20,}/g;
+/** Negrito e codigo do modelo, depois de escapar: nenhum HTML dele entra na tela. */
+const textoDaIA = (t) => esc(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, '<br>');
+
+function desenharConversa() {
+  const lista = $('#chatLista');
+  if (!lista) return;
+  lista.innerHTML = (conversa.length ? '' : '<div class="msg">Oi! Pergunte sobre a sua etapa. Eu explico o passo a passo, e quem faz e confere é você, aqui no Hub. Se quiser, cole aqui a chave do Meta, que o sistema confere e guarda.</div>')
+    + conversa.map((m) => `<div class="msg ${m.role === 'user' ? 'eu' : ''} ${m.erro ? 'erro' : ''}">${textoDaIA(m.content)}</div>`).join('')
+    + (esperandoIA ? '<div class="msg mu"><span class="gira" style="display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:g .7s linear infinite"></span> Pensando…</div>' : '');
+  lista.scrollTop = lista.scrollHeight;
+}
+async function enviarAoChat() {
+  const campo = $('#chatTexto');
+  const texto = campo.value.trim();
+  if (!texto || esperandoIA) return;
+  campo.value = '';
+  // A chave vai uma vez ao sistema e nao fica na tela nem no historico.
+  const mensagens = [...conversa.filter((m) => !m.erro).map(({ role, content }) => ({ role, content })), { role: 'user', content: texto }];
+  conversa.push({ role: 'user', content: texto.replace(CHAVE_NO_TEXTO, 'EAA… (chave)') });
+  esperandoIA = true; desenharConversa();
+  try {
+    const r = await api('chat', { mensagens, etapa: rotaAtual() });
+    conversa.push({ role: 'assistant', content: r.j.texto || 'Não consegui responder agora.', erro: Boolean(r.j.erro) });
+    if (r.j.recarregar) { await carregar(); desenharTrilho(rotaAtual()); }
+  } catch {
+    conversa.push({ role: 'assistant', content: 'Não consegui responder agora. Confira sua internet e tente de novo.', erro: true });
+  }
+  esperandoIA = false; desenharConversa();
+  $('#chatTexto')?.focus();
+}
 
 const IAS = {
   claude: { nome: 'Claude', passos: (u) => [
@@ -685,9 +724,19 @@ function textoPronto() {
 
 async function desenharIA() {
   const alvo = $('#painelIA');
-  const abas = `<div class="abas">${[['conectar', 'Conectar a minha IA'], ['colar', 'Só copiar e colar']].map(([id, t]) => `<button type="button" data-aba="${id}" class="${abaIA === id ? 'on' : ''}">${t}</button>`).join('')}</div>`;
+  if (!cache.chat) {
+    alvo.innerHTML = '<div class="vazio">Carregando…</div>';
+    cache.chat = (await api('chat')).j;
+  }
+  // Instalacao sem a IA da casa (copia antiga): a opcao nem aparece.
+  if (!cache.chat.disponivel && abaIA === 'casa') abaIA = 'conectar';
+  const abas = `<div class="abas">${[...(cache.chat.disponivel ? [['casa', 'IA do Tracking Lab']] : []), ['conectar', 'Conectar a minha IA'], ['colar', 'Só copiar e colar']].map(([id, t]) => `<button type="button" data-aba="${id}" class="${abaIA === id ? 'on' : ''}">${t}</button>`).join('')}</div>`;
   let corpo;
-  if (abaIA === 'colar') {
+  if (abaIA === 'casa') {
+    corpo = `<p class="mu sm" style="margin-top:12px">Grátis, na sua conta Cloudflare. Ela explica, mas pode errar: quem diz se ficou certo é o Hub. Se a sua conta Cloudflare for paga, o que passar da cota grátis é cobrado.</p>
+    <div class="chat" id="chatLista" aria-live="polite"></div>
+    <form id="chatForm" class="linha"><input type="text" id="chatTexto" placeholder="Escreva sua pergunta" aria-label="Sua pergunta" autocomplete="off" maxlength="1500"><button class="btn pri" type="submit">Enviar</button></form>`;
+  } else if (abaIA === 'colar') {
     corpo = `<p class="mu" style="margin-top:12px">Funciona em qualquer IA, sem instalar nada: ela explica e você clica. O texto já diz em que etapa você está e quais plataformas usa.</p>${codigo(textoPronto())}<p class="mu sm">O texto muda conforme você avança: copie de novo numa conversa nova.</p>`;
   } else {
     if (!cache.conector) alvo.innerHTML = '<div class="vazio">Carregando…</div>';
@@ -704,6 +753,10 @@ async function desenharIA() {
   alvo.innerHTML = `<div class="linha" style="justify-content:space-between"><h1 style="margin:0">Assistente</h1><button class="btn sm fant" id="fecharIA" type="button">Fechar</button></div>${abas}${corpo}`;
   copiaveis(alvo);
   $('#fecharIA').onclick = () => alternarIA(false);
+  if (abaIA === 'casa') {
+    desenharConversa();
+    $('#chatForm').onsubmit = (e) => { e.preventDefault(); enviarAoChat(); };
+  }
   alvo.querySelectorAll('[data-aba]').forEach((b) => b.onclick = () => { abaIA = b.dataset.aba; desenharIA(); });
   alvo.querySelectorAll('[data-ia]').forEach((b) => b.onclick = () => { iaEscolhida = b.dataset.ia; desenharIA(); });
   acao('#criarConector', async () => {

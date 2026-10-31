@@ -126,7 +126,7 @@ try {
   secao('instalacao local');
   wr(['d1', 'migrations', 'apply', 'DB', '--local', '--persist-to', `"${estado}"`]);
   ok('migracoes 0001 e 0002 aplicadas', true);
-  worker = spawn(WR, ['dev', '--port', String(PORTA), '--ip', '127.0.0.1', '--persist-to', `"${estado}"`, '--test-scheduled',
+  worker = spawn(WR, ['dev', '--local', '--port', String(PORTA), '--ip', '127.0.0.1', '--persist-to', `"${estado}"`, '--test-scheduled',
     '--var', `SENHA_HUB:${SENHA}`, '--var', `META_GRAPH_BASE:http://127.0.0.1:${PORTA_META}`, '--var', 'META_GRAPH_VERSAO:v25.0',
     '--show-interactive-dev-session=false'], { cwd: RAIZ, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const fim = Date.now() + 90000;
@@ -364,6 +364,14 @@ try {
   ok('as 11 etapas vem do sistema, com a luz', stE.etapas?.length === 11 && stE.etapas.find((e) => e.id === 'chave')?.luz === 'ok');
   const perfisR = (await api('/lab/api/perfis')).j;
   ok('as receitas vem do sistema', Boolean(perfisR.receitas?.pagina?.wordpress && perfisR.receitas?.checkout?.hotmart));
+
+  secao('IA da casa (a logica esta em teste/ia.mjs)');
+  ok('CONTROLE: sem entrar, o chat nao abre', (await fetch(`${BASE}/lab/api/chat`, { method: 'POST', body: '{}' })).status === 401);
+  ok('o Hub pergunta se a IA existe', typeof (await api('/lab/api/chat')).j.disponivel === 'boolean');
+  ok('o Hub traz o chat', app.includes('id="chatForm"') && app.includes('IA do Tracking Lab'));
+  const chatBm = await api('/lab/api/chat', { mensagens: [{ role: 'user', content: 'Posso gerar por outra BM?' }] });
+  console.log(`    (chat local: HTTP ${chatBm.status})`);
+  ok('o chat responde sem derrubar o Hub', [200, 503].includes(chatBm.status) && Boolean(chatBm.j.texto), `HTTP ${chatBm.status}`);
 
   secao('conector da IA (MCP)');
   ok('sem conector no comeco', (await api('/lab/api/conector')).j.ativo === false);

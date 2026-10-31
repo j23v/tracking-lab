@@ -20,6 +20,7 @@ import { alertar, gravarConfig, lerConfig, lerSegredo } from './config.js';
 import { paginaEntrar, paginaSemSenha } from './hub.js';
 import { paginaApp } from './hub/app.js';
 import { respostaIcone, respostaLogo } from './hub/marca.js';
+import { rotaChat } from './ia.js';
 import { conectorAtivo, criarConector, rotaMcp } from './mcp.js';
 import { formatoDoPayload, processarVenda, reenviarPendentes } from './motor.js';
 import { limparVisitas, rotaDaVisita, scriptDaPagina } from './pagina.js';
@@ -30,7 +31,7 @@ import {
 
 // ⚠️ Sem `export` aqui: o modulo principal do Worker so pode exportar handlers
 // (o runtime recusa subir com uma constante exportada -- visto na F0).
-const VERSAO = '0.4.0';
+const VERSAO = '0.5.0';
 // A origem publica do Tracking Lab (versoes novas e a rotina de atualizacao).
 const ORIGEM_REPO = 'j23v/tracking-lab';
 
@@ -179,6 +180,12 @@ async function rotaDaApi(caminho, request, env) {
   if (caminho === '/lab/api/conector') {
     if (metodo === 'GET') return json(await conectorAtivo(env));
     if (metodo === 'POST') return json(await criarConector(env, origem));
+  }
+
+  // A IA da casa (src/ia.js). Sem o binding `AI`, o Hub esconde o chat.
+  if (caminho === '/lab/api/chat') {
+    if (metodo === 'GET') return json({ disponivel: Boolean(env.AI) });
+    if (metodo === 'POST') return resp(await rotaChat(env, await request.json().catch(() => null), { origem, versao: VERSAO }));
   }
 
   return json({ erro: 'nao encontrado' }, 404);
