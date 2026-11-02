@@ -44,6 +44,13 @@ const chamadas = [];
 let falhou500 = false;
 let paginaSemScript = false; // a pessoa tirou a linha da pagina (alerta script_sumiu)
 let notaFalsa = 9.0;         // a nota que o Meta falso devolve (alerta nota_baixa)
+// As regras do dia da suite: assinadas com uma chave SO da suite (TL_REGRAS_CHAVE).
+const parRegras = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+const CHAVE_REGRAS = Buffer.from(await crypto.subtle.exportKey('raw', parRegras.publicKey)).toString('base64');
+const REGRAS = `${JSON.stringify({ formato: 1, versao: '2026-11-02.9', meta_graph_versao: 'v26.0', avisos: [{ texto: 'Aviso da suite' }] })}
+`;
+const SIG_REGRAS = Buffer.from(await crypto.subtle.sign({ name: 'Ed25519' }, parRegras.privateKey, new TextEncoder().encode(REGRAS))).toString('base64');
+let regrasAdulteradas = false; // a origem serve um arquivo que nao bate com a assinatura
 const meta = createServer((req, res) => {
   let corpo = '';
   req.on('data', (c) => { corpo += c; });
@@ -60,6 +67,8 @@ ${paginaSemScript ? '' : `<script src="${BASE}/v.js" async></script>`}<script>fb
     res.setHeader('Content-Type', 'application/json');
     // A origem publica do Tracking Lab (a versao mais nova), como o raw do GitHub.
     if (req.url === '/j23v/tracking-lab/main/package.json') { res.end(JSON.stringify({ version: '9.9.9' })); return; }
+    if (req.url === '/j23v/tracking-lab/main/regras/regras.json') { res.end(regrasAdulteradas ? REGRAS.replace('v26', 'v27') : REGRAS); return; }
+    if (req.url === '/j23v/tracking-lab/main/regras/regras.json.sig') { res.end(SIG_REGRAS); return; }
     if (req.url.includes('/dataset_quality')) {
       res.end(JSON.stringify({ web: [{ event_name: 'Purchase', event_match_quality: { composite_score: notaFalsa } }] }));
       return;
@@ -67,7 +76,7 @@ ${paginaSemScript ? '' : `<script src="${BASE}/v.js" async></script>`}<script>fb
     const j = JSON.parse(corpo || '{}');
     const ev = j.data?.[0] || {};
     const pixel = req.url.split('/')[2];
-    chamadas.push({ pixel, corpo: j, cru: corpo });
+    chamadas.push({ pixel, versao: req.url.split('/')[1], corpo: j, cru: corpo });
     const erro = (status, e) => { res.statusCode = status; res.end(JSON.stringify({ error: e })); };
     if (j.access_token === 'TOKEN-RUIM') return erro(401, { code: 190, message: 'Invalid OAuth access token.' });
     if (Date.now() / 1000 - ev.event_time > 7 * 86400) return erro(400, { code: 100, error_subcode: 2804003, message: 'event_time too old' });
@@ -131,7 +140,7 @@ try {
   wr(['d1', 'migrations', 'apply', 'DB', '--local', '--persist-to', `"${estado}"`]);
   ok('migracoes 0001 e 0002 aplicadas', true);
   worker = spawn(WR, ['dev', '--local', '--port', String(PORTA), '--ip', '127.0.0.1', '--persist-to', `"${estado}"`, '--test-scheduled',
-    '--var', `SENHA_HUB:${SENHA}`, '--var', `META_GRAPH_BASE:http://127.0.0.1:${PORTA_META}`, '--var', 'META_GRAPH_VERSAO:v25.0', '--var', `TL_ORIGEM_RAW:http://127.0.0.1:${PORTA_META}`,
+    '--var', `SENHA_HUB:${SENHA}`, '--var', `META_GRAPH_BASE:http://127.0.0.1:${PORTA_META}`, '--var', `TL_ORIGEM_RAW:http://127.0.0.1:${PORTA_META}`, '--var', `TL_REGRAS_CHAVE:${CHAVE_REGRAS}`,
     '--show-interactive-dev-session=false'], { cwd: RAIZ, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const fim = Date.now() + 90000;
   let subiu = false;
@@ -470,6 +479,25 @@ try {
   paginaSemScript = false; notaFalsa = 9.0;
   await api('/lab/api/conferir', {});
   ok('a pessoa colou de volta e a nota subiu: os dois somem sozinhos', !(await alerta('script_sumiu')) && !(await alerta('nota_baixa')));
+
+  secao('regras do dia');
+  ok('antes de ler as regras, a venda foi na versao do codigo', chamadasDe('V-001')[0]?.versao === 'v25.0', chamadasDe('V-001')[0]?.versao);
+  const rg = (await api('/lab/api/status')).j.regras;
+  ok('regras lidas pelo cron, com a assinatura conferida', rg?.versao === '2026-11-02.9' && rg.leitura?.ok && rg.meta === 'v26.0', JSON.stringify(rg));
+  ok('o aviso das regras aparece', rg?.avisos?.[0]?.texto === 'Aviso da suite');
+  await webhook(venda({ sale_id: 'V-REGRAS' }));
+  ok('depois das regras, a venda vai na versao das regras', (await envio('V-REGRAS'))?.status === 'enviado' && chamadasDe('V-REGRAS')[0]?.versao === 'v26.0', chamadasDe('V-REGRAS')[0]?.versao);
+  regrasAdulteradas = true;
+  await api('/lab/api/conferir', {});
+  const rg2 = (await api('/lab/api/status')).j.regras;
+  ok('CONTROLE: arquivo adulterado e recusado, e as regras boas ficam', rg2.leitura?.ok === false && rg2.leitura.motivo === 'assinatura' && rg2.versao === '2026-11-02.9');
+  regrasAdulteradas = false;
+  ok('desligar as regras', (await api('/lab/api/regras', { ligadas: false })).j.ligadas === false);
+  const rg3 = (await api('/lab/api/status')).j.regras;
+  ok('desligadas: vale a versao do codigo e o aviso some', rg3.ligadas === false && rg3.meta === 'v25.0' && !rg3.avisos.length);
+  await webhook(venda({ sale_id: 'V-SEMREGRAS' }));
+  ok('CONTROLE: desligadas, a venda vai na versao do codigo', (await envio('V-SEMREGRAS'))?.status === 'enviado' && chamadasDe('V-SEMREGRAS')[0]?.versao === 'v25.0');
+  await api('/lab/api/regras', { ligadas: true });
 
   const novoMcp = (await api('/lab/api/conector', {})).j.url;
   ok('CONTROLE: criar outro endereco derruba o anterior', (await fetch(urlMcp, { method: 'POST', body: '{}' })).status === 404 && (await rpc('ping', {}, novoMcp)).status === 200);

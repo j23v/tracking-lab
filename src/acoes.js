@@ -10,9 +10,10 @@ import {
   gravarConfig, gravarSegredo, lerConfig, lerSegredo, resolverAlertas, segredoValido,
 } from './config.js';
 import { detectarPagina } from './deteccao.js';
-import { GRAPH_VERSAO_PADRAO, conferirChave, lerQualidade } from './meta.js';
+import { conferirChave, lerQualidade } from './meta.js';
 import { testeComControle } from './motor.js';
 import { estadoDasEtapas } from './receitas.js';
+import { estadoDasRegras, lerRegras, perfilComRegras, versaoMeta } from './regras.js';
 
 export const TABELAS = ['alertas', 'config', 'envios', 'segredos', 'visitas'];
 
@@ -28,7 +29,7 @@ export async function estado(env, versao) {
   const st = {
     versao, banco: 'ok', tabelas: [], tabelasFaltando: [...TABELAS], ultimoCron: null,
     segredos: [], config: null, ultimoWebhook: null, envios24h: [], alertas: [],
-    deteccao: null, ultimoTeste: null, visitas24h: null, etapas: [], ultimaConferencia: null,
+    deteccao: null, ultimoTeste: null, visitas24h: null, etapas: [], ultimaConferencia: null, regras: null,
   };
   if (!env.DB) return { ...st, banco: 'sem_binding' };
   try {
@@ -57,6 +58,7 @@ export async function estado(env, versao) {
     st.visitas24h = await env.DB.prepare(
       'SELECT count(*) n, sum(fbc IS NOT NULL) fbc, sum(fbp IS NOT NULL) fbp, max(vista) ultima FROM visitas WHERE vista >= ?',
     ).bind(desde).first();
+    st.regras = await estadoDasRegras(env);
     st.etapas = estadoDasEtapas(st);
   } catch (erro) {
     st.banco = `erro: ${String(erro).slice(0, 120)}`;
@@ -65,9 +67,9 @@ export async function estado(env, versao) {
 }
 
 /** O perfil de um checkout: um dos prontos, ou o "outro" que o cliente montou. */
-export function perfilDe(id, cfg) {
+export function perfilDe(id, cfg, regras = null) {
   if (id === 'outro') return cfg?.perfil_outro || null;
-  return PERFIS[id] || null;
+  return perfilComRegras(id, regras);
 }
 
 /** Os links de checkout que o /v.js marca: todos os perfis prontos + o "outro". */
@@ -105,7 +107,7 @@ export function vendaParaConferir(v) {
   };
 }
 
-const opcoesMeta = (env) => ({ versao: env.META_GRAPH_VERSAO || GRAPH_VERSAO_PADRAO, base: env.META_GRAPH_BASE });
+const opcoesMeta = async (env) => ({ versao: versaoMeta(env, await lerRegras(env)), base: env.META_GRAPH_BASE });
 
 /**
  * Guarda a chave do Meta ou o token de um checkout. A chave do Meta so e
@@ -119,7 +121,7 @@ export async function salvarSegredo(env, nome, valor) {
     const cfg = await lerConfig(env);
     if (!cfg.pixels.length) return { ok: false, status: 409, erro: 'configure o pixel antes da chave' };
     for (const pixel of cfg.pixels) {
-      const c = await conferirChave({ token: v, pixel, ...opcoesMeta(env) });
+      const c = await conferirChave({ token: v, pixel, ...(await opcoesMeta(env)) });
       if (!c.ok) return { ok: false, status: 422, pixel, motivo: c.motivo, detalhe: c.detalhe };
     }
   }
@@ -159,7 +161,7 @@ export async function qualidade(env) {
   const token = await lerSegredo(env, 'meta_token');
   if (!cfg.pixels.length || !token) return { erro: 'falta o pixel ou a chave do Meta' };
   const porPixel = {};
-  for (const pixel of cfg.pixels) porPixel[pixel] = await lerQualidade({ token, pixel, ...opcoesMeta(env) });
+  for (const pixel of cfg.pixels) porPixel[pixel] = await lerQualidade({ token, pixel, ...(await opcoesMeta(env)) });
   return porPixel;
 }
 
@@ -195,7 +197,7 @@ export async function analisar(env, exemplo, perfil) {
   let leitura = null;
   if (perfil) {
     const cfg = await lerConfig(env);
-    let p = typeof perfil === 'string' ? perfilDe(perfil, cfg) : null;
+    let p = typeof perfil === 'string' ? perfilDe(perfil, cfg, await lerRegras(env)) : null;
     if (!p && typeof perfil === 'object') {
       try { p = validarPerfil(perfil); } catch (e) { return { ...r, status: 400, erro_perfil: e.message }; }
     }

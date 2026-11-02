@@ -172,6 +172,33 @@ function caminhos(v, nome) {
   return l;
 }
 
+/**
+ * Ajuste de um perfil PRONTO pelas regras do dia (src/regras.js): so troca
+ * caminhos de campos e os valores dos eventos -- nunca a autenticacao. Devolve
+ * um perfil novo; lanca se o ajuste for invalido (e as regras sao recusadas).
+ */
+export function ajustarPerfil(perfil, ajuste) {
+  const aj = ajuste || {};
+  const ok = Object.keys(aj).filter((k) => !['campos', 'eventos'].includes(k));
+  if (ok.length) throw new Error(`ajuste: só "campos" e "eventos" (veio ${ok.join(', ')})`);
+  const out = { ...perfil, campos: { ...perfil.campos }, eventos: { ...perfil.eventos } };
+  for (const [k, v] of Object.entries(aj.campos || {})) {
+    if (!CAMPOS.includes(k)) throw new Error(`campos.${k}: campo desconhecido`);
+    const l = caminhos(v, `campos.${k}`);
+    if (!l.length) throw new Error(`campos.${k}: vazio`);
+    out.campos[k] = l;
+  }
+  for (const [k, v] of Object.entries(aj.eventos || {})) {
+    if (k === 'campos') { out.eventos.campos = caminhos(v, 'eventos.campos'); continue; }
+    if (!['aprovada', 'reembolso', 'chargeback'].includes(k)) throw new Error(`eventos.${k}: desconhecido`);
+    out.eventos[k] = lista(v).map(String).filter(Boolean).slice(0, 10);
+  }
+  if (!out.campos.pedido?.length || !out.campos.email?.length || !out.eventos.campos?.length || !out.eventos.aprovada?.length) {
+    throw new Error('ajuste: pedido, e-mail, campo do status e "aprovada" não podem sumir');
+  }
+  return out;
+}
+
 /** Valida e limpa o perfil "outro". Lanca com uma mensagem em portugues. */
 export function validarPerfil(entrada) {
   const p = entrada || {};

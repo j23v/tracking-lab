@@ -17,7 +17,8 @@ test -f "$ORIGEM/src/index.js" || { echo "origem sem src/index.js: nada aplicado
 
 nome=$(jq -r '.name' package.json)
 
-rsync -a --exclude '.git/' --exclude '.github/' --exclude 'wrangler.jsonc' --exclude 'node_modules/' "$ORIGEM"/ ./
+# regras/: o Worker le as regras do dia direto da origem; copiar so geraria publicacao a toa.
+rsync -a --exclude '.git/' --exclude '.github/' --exclude 'wrangler.jsonc' --exclude 'node_modules/' --exclude 'regras/' "$ORIGEM"/ ./
 # src/ inteira espelhada: um arquivo que saiu da origem sai daqui tambem.
 rsync -a --delete "$ORIGEM"/src/ ./src/
 

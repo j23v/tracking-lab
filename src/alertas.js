@@ -7,12 +7,13 @@
 //   - de EVENTO (um aviso de venda estranho, por exemplo): ficam ate a causa ser
 //     resolvida no Hub ou a pessoa dispensar.
 //
-// A parte cara (ler a pagina, a nota do Meta e a versao nova) roda 1x por dia e
+// A parte cara (as regras do dia, a pagina, a nota do Meta e a versao nova) roda 1x por dia e
 // fica guardada; a avaliacao usa o que estiver guardado.
 
 import { lerConfig, lerSegredo, resolverAlertas } from './config.js';
 import { detectarPagina } from './deteccao.js';
-import { GRAPH_VERSAO_PADRAO, lerQualidade } from './meta.js';
+import { lerQualidade } from './meta.js';
+import { atualizarRegras, lerRegras, versaoMeta } from './regras.js';
 
 const HORA = 3600 * 1000;
 const DIA = 24 * HORA;
@@ -118,15 +119,17 @@ export async function versaoDaOrigem(env, repo, buscar = fetch) {
   }
 }
 
-/** A parte de 1x por dia: ler a pagina, a nota do Meta e a versao nova. Nunca lanca. */
+/** A parte de 1x por dia: as regras do dia, a pagina, a nota do Meta e a versao nova. Nunca lanca. */
 async function conferenciaDiaria(env, { versao, repo, buscar }) {
+  await atualizarRegras(env, repo, buscar);
+  const regras = await lerRegras(env);
   const cfg = await lerConfig(env);
   if (cfg.dominio) await registrarDeteccao(env, await detectarPagina(cfg.dominio, '', buscar));
   const token = await lerSegredo(env, 'meta_token');
   if (cfg.pixels.length && token) {
     let nota = null;
     for (const pixel of cfg.pixels) {
-      const q = await lerQualidade({ token, pixel, versao: env.META_GRAPH_VERSAO || GRAPH_VERSAO_PADRAO, base: env.META_GRAPH_BASE }, buscar);
+      const q = await lerQualidade({ token, pixel, versao: versaoMeta(env, regras), base: env.META_GRAPH_BASE }, buscar);
       const compra = (q.web || []).find((e) => e.event_name === 'Purchase');
       const s = compra?.event_match_quality?.composite_score;
       if (typeof s === 'number' && (!nota || s < nota.min)) nota = { min: s, pixel };

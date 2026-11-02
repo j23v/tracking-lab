@@ -9,7 +9,8 @@
 // com hash) e sai quando a configuracao chegar, dentro dos 7 dias do Meta.
 
 import { alertar, lerConfig, lerSegredo } from './config.js';
-import { GRAPH_VERSAO_PADRAO, enviarEvento, montarEvento } from './meta.js';
+import { enviarEvento, montarEvento } from './meta.js';
+import { lerRegras, versaoMeta } from './regras.js';
 
 const SETE_DIAS = 7 * 24 * 3600;
 // Margem: o Meta recusa evento com mais de 7 dias; tenta so ate 6 dias e meio.
@@ -42,9 +43,10 @@ export function formatoDoPayload(p) {
   return chaves(p, 1).slice(0, 2000);
 }
 
-function opcoesDeEnvio(env, cfg) {
+function opcoesDeEnvio(env, cfg, regras) {
   return {
-    versao: String(env.META_GRAPH_VERSAO || GRAPH_VERSAO_PADRAO),
+    // A versao da API vem das regras do dia (se houver), senao do codigo.
+    versao: versaoMeta(env, regras),
     // So para a suite apontar um Meta falso.
     base: env.META_GRAPH_BASE || undefined,
     codigoTeste: cfg.codigo_teste || '',
@@ -65,8 +67,8 @@ async function registrar(env, l) {
 }
 
 /** Manda (ou guarda) um evento pronto para um pixel e registra o resultado. */
-async function enviarERegistrar(env, cfg, token, base, pixel, evento, tentativas) {
-  const op = opcoesDeEnvio(env, cfg);
+async function enviarERegistrar(env, cfg, regras, token, base, pixel, evento, tentativas) {
+  const op = opcoesDeEnvio(env, cfg, regras);
   const r = await enviarEvento({ evento, pixel, token, ...op });
   const guardar = REENVIAVEIS.includes(r.status);
   await registrar(env, {
@@ -110,6 +112,7 @@ export async function processarVenda(env, venda, formato, { agoraSeg = Math.floo
     };
 
     const token = await lerSegredo(env, 'meta_token');
+    const regras = await lerRegras(env);
     if (!cfg.pixels.length || !token) {
       await registrar(env, { ...base, pixel: '*', status: 'sem_config', evento_json: JSON.stringify(evento) });
       return { acao: 'guardado', motivo: 'sem pixel ou chave' };
@@ -121,7 +124,7 @@ export async function processarVenda(env, venda, formato, { agoraSeg = Math.floo
         .bind(venda.pedido, nome, pixel).first();
       // Reenvio do checkout: o que ja foi aceito de verdade nao vai de novo.
       if (ja?.status === 'enviado' && !ja.teste) { resultados[pixel] = 'ja_enviado'; continue; }
-      resultados[pixel] = await enviarERegistrar(env, cfg, token, base, pixel, evento, 1);
+      resultados[pixel] = await enviarERegistrar(env, cfg, regras, token, base, pixel, evento, 1);
     }
     return { acao: 'enviado', resultados, campos: base.campos };
   } catch (erro) {
@@ -140,6 +143,7 @@ export async function reenviarPendentes(env, { agoraSeg = Math.floor(Date.now() 
   try {
     const cfg = await lerConfig(env);
     const token = await lerSegredo(env, 'meta_token');
+    const regras = await lerRegras(env);
     const { results } = await env.DB.prepare(
       `SELECT * FROM envios WHERE evento_json IS NOT NULL AND status IN ('falhou','chave_invalida','sem_config')
        ORDER BY quando LIMIT ?`,
@@ -165,7 +169,7 @@ export async function reenviarPendentes(env, { agoraSeg = Math.floor(Date.now() 
       const alvos = l.pixel === '*' ? cfg.pixels : [l.pixel];
       for (const pixel of alvos) {
         resumo.tentados++;
-        const st = await enviarERegistrar(env, cfg, token, base, pixel, evento, (l.tentativas || 0) + 1);
+        const st = await enviarERegistrar(env, cfg, regras, token, base, pixel, evento, (l.tentativas || 0) + 1);
         if (st === 'enviado') resumo.enviados++;
       }
       if (l.pixel === '*') {
@@ -195,7 +199,7 @@ export async function testeComControle(env) {
     ip: '2804:14c:5b81:8000::1', navegador: 'Mozilla/5.0 (teste Tracking Lab)', cookies: { fbp: `fb.1.${agora * 1000}.1234567890` },
     utm: { utm_content: '::IwAR_teste_tracking_lab_0123456789' },
   };
-  const op = opcoesDeEnvio(env, cfg);
+  const op = opcoesDeEnvio(env, cfg, await lerRegras(env));
   const casos = {};
   for (const [caso, quando] of [['ok', agora], ['deve_falhar', agora - 8 * 24 * 3600]]) {
     const { evento } = await montarEvento({ ...venda, pedido: `${venda.pedido}-${caso}` }, null, cfg, quando);

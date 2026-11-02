@@ -22,6 +22,7 @@ import { paginaEntrar, paginaSemSenha } from './hub.js';
 import { paginaApp } from './hub/app.js';
 import { respostaIcone, respostaLogo } from './hub/marca.js';
 import { rotaChat } from './ia.js';
+import { ligarRegras, lerRegras } from './regras.js';
 import { conectorAtivo, criarConector, rotaMcp } from './mcp.js';
 import { formatoDoPayload, processarVenda, reenviarPendentes } from './motor.js';
 import { limparVisitas, rotaDaVisita, scriptDaPagina } from './pagina.js';
@@ -32,7 +33,7 @@ import {
 
 // ⚠️ Sem `export` aqui: o modulo principal do Worker so pode exportar handlers
 // (o runtime recusa subir com uma constante exportada -- visto na F0).
-const VERSAO = '0.6.0';
+const VERSAO = '0.7.0';
 // A origem publica do Tracking Lab (versoes novas e a rotina de atualizacao).
 const ORIGEM_REPO = 'j23v/tracking-lab';
 
@@ -56,7 +57,7 @@ async function corpoJson(request) {
 /** `POST /w/<checkout>`: autentica, responde rapido e processa em segundo plano. */
 async function rotaDoWebhook(request, env, ctx, id) {
   const cfg = await lerConfig(env);
-  const perfil = perfilDe(id, cfg);
+  const perfil = perfilDe(id, cfg, await lerRegras(env));
   if (!perfil && id !== 'outro') return json({ erro: 'checkout desconhecido' }, 404);
   const texto = await request.text();
   if (texto.length > 200000) return json({ erro: 'corpo grande demais' }, 413);
@@ -167,6 +168,12 @@ async function rotaDaApi(caminho, request, env) {
     let ultima = '';
     try { ultima = JSON.parse(pacote).version || ''; } catch { /* sem rede: fica vazio */ }
     return json({ instalada: VERSAO, ultima, origem: ORIGEM_REPO, rotina });
+  }
+
+  // Regras do dia: o cliente liga ou desliga (desligadas: vale o que veio no codigo).
+  if (caminho === '/lab/api/regras' && metodo === 'POST') {
+    const { ligadas } = (await corpoJson(request)) || {};
+    return resp(await ligarRegras(env, ligadas !== false));
   }
 
   // Alertas: dispensar um aviso de evento, ou conferir tudo agora.

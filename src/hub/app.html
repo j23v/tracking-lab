@@ -255,6 +255,7 @@ TELAS.painel = () => {
   return `<h1>Painel</h1><p class="sub">Tudo do seu rastreamento num lugar. Siga as etapas: cada luz verde é um passo certo.</p>
   ${p ? `<div class="card destaque"><span class="rot">Próximo passo</span><h2 style="margin:6px 0 8px">${p.t}</h2><a class="btn pri" href="#/${p.id}">Continuar →</a></div>`
       : '<div class="card destaque"><span class="rot">Tudo pronto</span><h2 style="margin:6px 0 8px">Seu rastreamento está valendo</h2><a class="btn" href="#/resultados">Ver resultados →</a></div>'}
+  ${(S.regras?.avisos || []).map((a) => `<div class="aviso info"><b>Aviso do Tracking Lab:</b> ${esc(a.texto)}</div>`).join('')}
   ${(S.alertas || []).map((a) => `<div class="aviso bad"><b>${esc(a.texto || a.tipo)}</b>${a.detalhe ? `<div class="mu sm" style="margin-top:4px">${esc(a.detalhe)}</div>` : ''}<div class="linha" style="margin-top:8px"><span class="mu sm">desde ${quando(a.quando)}</span>${a.etapa ? `<a class="btn sm" href="#/${esc(a.etapa)}">Resolver →</a>` : ''}${a.dispensavel ? `<button class="btn sm fant" type="button" data-dispensar="${esc(a.tipo)}">Dispensar</button>` : ''}</div></div>`).join('')}
   <div class="grade">
     <div class="card"><span class="rot">Compras aceitas · 24 h</span><div class="num">${tot('Purchase', 'enviado')}</div><span class="mu sm">com problema: ${tot('Purchase') - tot('Purchase', 'enviado')}</span></div>
@@ -620,11 +621,29 @@ TELAS.reembolso.ligar = ligarConfirmacoes;
 
 TELAS.atualizacoes = () => `<h1>Atualizações</h1><p class="sub">O Meta e os checkouts mudam. As correções chegam sozinhas pela rotina "Atualizar Tracking Lab" no seu GitHub — mas a Cloudflare não copia essa rotina na instalação, então ela é posta uma vez, aqui.</p>
   <div class="card" id="ver"><div class="vazio">Conferindo a versão…</div></div>
+  ${cartaoRegras()}
   <div class="card"><div class="campo"><label class="r" for="repo">Seu repositório no GitHub</label><div class="linha"><input type="text" id="repo" placeholder="seu-usuario/tracking-lab" value="${esc(cfg().repositorio || '')}"><button class="btn" id="salvarRepo">Salvar</button></div><span class="mu sm">É a cópia que o botão de instalação criou (aparece no painel da Cloudflare, ao lado do projeto).</span></div>
   <div id="rotina"></div></div>
   <div class="chips">${tog('c', 'rotina', 'Instalei a rotina (apertei "Commit changes")', conf('rotina'))}</div>${rodape('atualizacoes')}`;
+/** As regras do dia: o que mudamos sem publicar código (versão do Meta, campos dos checkouts, avisos). */
+function cartaoRegras() {
+  const r = S.regras || {};
+  const l = r.leitura;
+  const luz = !r.ligadas ? 'meio' : r.versao ? (l && !l.ok ? 'meio' : 'ok') : '';
+  const det = !r.ligadas ? 'Desligadas: vale só o que veio na sua versão.'
+    : r.versao ? `Versão ${esc(r.versao)}${l ? ` · conferidas em ${quando(l.quando)}${l.ok ? ' · assinatura do Tracking Lab conferida' : ' · a última leitura falhou, ficou a anterior'}` : ''} · API do Meta ${esc(r.meta)}${(r.checkouts_ajustados || []).length ? ` · ajustes em ${esc(r.checkouts_ajustados.map(nomeCk).join(', '))}` : ''}`
+      : 'Ainda não lidas: a leitura é uma vez por dia (ou aperte "Conferir agora" no Painel).';
+  return `<div class="card">${lin(luz, 'Regras do dia', det)}<p class="mu sm" style="margin-top:8px">Quando o Meta ou um checkout muda, ajustamos por aqui sem você precisar atualizar nada. Só valem com a nossa assinatura.</p>
+  <div class="chips">${tog('r', 'regras', 'Usar as regras do dia (recomendado)', r.ligadas !== false)}</div></div>`;
+}
 TELAS.atualizacoes.ligar = async (raiz) => {
   ligarConfirmacoes(raiz);
+  raiz.querySelectorAll('input[name=r]').forEach((i) => i.addEventListener('change', async () => {
+    i.closest('.tog').classList.toggle('on', i.checked);
+    const r = await api('regras', { ligadas: i.checked });
+    if (!r.ok) { toast('Não salvei', 'bad'); return; }
+    await carregar(); desenhar();
+  }));
   acao('#salvarRepo', async () => { const r = await api('config', { repositorio: $('#repo').value.trim() }); if (!r.ok) throw new Error(r.j.erro); toast('Repositório salvo'); });
   const v = cache.versao || (cache.versao = (await api('versao')).j);
   const alvo = $('#ver'); if (!alvo) return;
