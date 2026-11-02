@@ -44,13 +44,19 @@ const chamadas = [];
 let falhou500 = false;
 let paginaSemScript = false; // a pessoa tirou a linha da pagina (alerta script_sumiu)
 let notaFalsa = 9.0;         // a nota que o Meta falso devolve (alerta nota_baixa)
-// As regras do dia da suite: assinadas com uma chave SO da suite (TL_REGRAS_CHAVE).
+// As regras do dia da suite: assinadas com uma chave SO da suite (TL_CHAVE_TESTE).
 const parRegras = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
 const CHAVE_REGRAS = Buffer.from(await crypto.subtle.exportKey('raw', parRegras.publicKey)).toString('base64');
 const REGRAS = `${JSON.stringify({ formato: 1, versao: '2026-11-02.9', meta_graph_versao: 'v26.0', avisos: [{ texto: 'Aviso da suite' }] })}
 `;
 const SIG_REGRAS = Buffer.from(await crypto.subtle.sign({ name: 'Ed25519' }, parRegras.privateKey, new TextEncoder().encode(REGRAS))).toString('base64');
 let regrasAdulteradas = false; // a origem serve um arquivo que nao bate com a assinatura
+// A licenca, no formato de src/licenca.js, assinada com a chave da suite.
+const b64url = (b) => Buffer.from(b).toString('base64url');
+async function licencaDe(email, perfis, chave = parRegras.privateKey) {
+  const dados = b64url(JSON.stringify({ v: 1, e: email, p: 'PED-1', n: perfis, d: '2026-11-02' }));
+  return `TL1-${dados}.${b64url(await crypto.subtle.sign({ name: 'Ed25519' }, chave, new TextEncoder().encode(`tracking-lab-licenca:${dados}`)))}`;
+}
 const meta = createServer((req, res) => {
   let corpo = '';
   req.on('data', (c) => { corpo += c; });
@@ -140,7 +146,7 @@ try {
   wr(['d1', 'migrations', 'apply', 'DB', '--local', '--persist-to', `"${estado}"`]);
   ok('migracoes 0001 e 0002 aplicadas', true);
   worker = spawn(WR, ['dev', '--local', '--port', String(PORTA), '--ip', '127.0.0.1', '--persist-to', `"${estado}"`, '--test-scheduled',
-    '--var', `SENHA_HUB:${SENHA}`, '--var', `META_GRAPH_BASE:http://127.0.0.1:${PORTA_META}`, '--var', `TL_ORIGEM_RAW:http://127.0.0.1:${PORTA_META}`, '--var', `TL_REGRAS_CHAVE:${CHAVE_REGRAS}`,
+    '--var', `SENHA_HUB:${SENHA}`, '--var', `META_GRAPH_BASE:http://127.0.0.1:${PORTA_META}`, '--var', `TL_ORIGEM_RAW:http://127.0.0.1:${PORTA_META}`, '--var', `TL_CHAVE_TESTE:${CHAVE_REGRAS}`,
     '--show-interactive-dev-session=false'], { cwd: RAIZ, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const fim = Date.now() + 90000;
   let subiu = false;
@@ -156,6 +162,21 @@ try {
   cookie = (entrar.headers.get('set-cookie') || '').split(';')[0];
   ok('entrou no Hub', entrar.status === 303 && cookie.startsWith('tl_sessao='));
   ok('CONTROLE: API sem login recusa', (await fetch(`${BASE}/lab/api/config`)).status === 401);
+
+  secao('licenca');
+  ok('sem licenca, o Hub mostra a ativacao', (await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text()).includes('Ative o seu Tracking Lab'));
+  ok('CONTROLE: sem licenca, a API nao configura nada', (await api('/lab/api/config', { pixels: ['111111'] })).status === 402);
+  ok('sem licenca, o estado ainda abre (sem licenca)', (await api('/lab/api/status')).j.licenca === null);
+  const ativar = async (email, licenca) => fetch(`${BASE}/lab/ativar`, { method: 'POST', redirect: 'manual', headers: { Cookie: cookie }, body: new URLSearchParams({ email, licenca }) });
+  const outraChave = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+  ok('CONTROLE: licenca de outra chave recusada', (await ativar('dono@exemplo.com', await licencaDe('dono@exemplo.com', 1, outraChave.privateKey))).status === 400);
+  ok('CONTROLE: e-mail diferente do da licenca recusado', (await ativar('outro@exemplo.com', await licencaDe('dono@exemplo.com', 1))).status === 400);
+  const lic1 = await licencaDe('dono@exemplo.com', 1);
+  ok('CONTROLE: licenca adulterada recusada', (await ativar('dono@exemplo.com', `${lic1.slice(0, -10)}${lic1.at(-10) === 'A' ? 'B' : 'A'}${lic1.slice(-9)}`)).status === 400);
+  ok('licenca certa ativa', (await ativar(' Dono@Exemplo.com ', lic1)).status === 303);
+  const stLic = (await api('/lab/api/status')).j.licenca;
+  ok('o Hub mostra para quem e, sem o codigo', stLic?.email === 'dono@exemplo.com' && !JSON.stringify(stLic).includes('TL1-'));
+  ok('com licenca, abre o Hub', (await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text()).includes('id="passos"'));
 
   secao('webhook antes do token');
   ok('CONTROLE: sem token configurado -> 401', (await webhook(venda({ sale_id: 'V-SEMTOKEN' }))) === 401);
@@ -261,7 +282,8 @@ try {
   ok('com a chave nova, saiu', Boolean(await envio('CHAVE-190', 'Purchase', '111111', (u) => u.status === 'enviado')));
 
   secao('dois pixels');
-  await api('/lab/api/config', { pixels: ['111111', '222222'] });
+  ok('uma licenca liga quantos pixels a pessoa quiser', (await api('/lab/api/config', { pixels: ['111111', '222222'] })).j.ok === true);
+  ok('trocar a licenca no Hub', (await api('/lab/api/licenca', { email: 'dono@exemplo.com', licenca: await licencaDe('dono@exemplo.com', 1) })).j.ok === true);
   await webhook(venda({ sale_id: 'V-002', utm: {} }));
   await envio('V-002', 'Purchase', '222222');
   const px = chamadasDe('V-002').map((c) => c.pixel).sort();

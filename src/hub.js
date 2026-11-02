@@ -32,6 +32,16 @@ ${erro ? `<div class="err">${esc(erro)}</div>` : ''}
 <button type="submit">Entrar</button></form></div>`);
 }
 
+export function paginaAtivar({ erro = '', email = '' } = {}) {
+  return pagina('Ativar — Tracking Lab', `<div class="card"><h1>Ative o seu Tracking Lab</h1>
+<p class="mu">Cole a licença que chegou com a sua compra e o e-mail que você usou para comprar.</p>
+${erro ? `<div class="err">${esc(erro)}</div>` : ''}
+<form method="post" action="/lab/ativar"><label for="e">E-mail da compra</label><input id="e" type="email" name="email" value="${esc(email)}" autocomplete="email" required autofocus>
+<label for="l">Licença</label><input id="l" type="text" name="licenca" placeholder="TL1-…" autocomplete="off" spellcheck="false" required>
+<button type="submit">Ativar</button></form>
+<p class="mu sm">Não achou a licença? Procure no e-mail da compra ou fale com o suporte.</p></div>`);
+}
+
 export function paginaSemSenha(estado) {
   const motivo = estado === 'curta'
     ? 'A senha do Hub tem menos de 12 caracteres.'

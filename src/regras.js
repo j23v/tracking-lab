@@ -67,7 +67,7 @@ export async function buscarRegras(env, repo, buscar = fetch) {
     if (!r.ok || !s.ok) return { ok: false, motivo: 'sem_arquivo' };
     const [texto, sig] = await Promise.all([r.text(), s.text()]);
     // A chave de teste so existe na suite; no cliente vale a do codigo.
-    if (!(await conferirAssinatura(texto, sig, env.TL_REGRAS_CHAVE || CHAVE_PUBLICA))) return { ok: false, motivo: 'assinatura' };
+    if (!(await conferirAssinatura(texto, sig, env.TL_CHAVE_TESTE || CHAVE_PUBLICA))) return { ok: false, motivo: 'assinatura' };
     let dados;
     try { dados = JSON.parse(normalizar(texto)); } catch { return { ok: false, motivo: 'json' }; }
     const v = validarRegras(dados);

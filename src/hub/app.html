@@ -622,9 +622,19 @@ TELAS.reembolso.ligar = ligarConfirmacoes;
 TELAS.atualizacoes = () => `<h1>Atualizações</h1><p class="sub">O Meta e os checkouts mudam. As correções chegam sozinhas pela rotina "Atualizar Tracking Lab" no seu GitHub — mas a Cloudflare não copia essa rotina na instalação, então ela é posta uma vez, aqui.</p>
   <div class="card" id="ver"><div class="vazio">Conferindo a versão…</div></div>
   ${cartaoRegras()}
+  ${cartaoLicenca()}
   <div class="card"><div class="campo"><label class="r" for="repo">Seu repositório no GitHub</label><div class="linha"><input type="text" id="repo" placeholder="seu-usuario/tracking-lab" value="${esc(cfg().repositorio || '')}"><button class="btn" id="salvarRepo">Salvar</button></div><span class="mu sm">É a cópia que o botão de instalação criou (aparece no painel da Cloudflare, ao lado do projeto).</span></div>
   <div id="rotina"></div></div>
   <div class="chips">${tog('c', 'rotina', 'Instalei a rotina (apertei "Commit changes")', conf('rotina'))}</div>${rodape('atualizacoes')}`;
+/** A licença: para quem foi emitida; dá para trocar (ex.: outro e-mail). */
+function cartaoLicenca() {
+  const l = S.licenca;
+  return `<div class="card">${lin(l ? 'ok' : '', 'Licença', l ? `Licenciado para ${esc(l.email)}${l.emitida ? ` · emitida em ${esc(l.emitida)}` : ''}` : 'Sem licença')}
+  <details style="margin-top:8px"><summary class="mu sm">Trocar a licença</summary>
+  <div class="campo"><label class="r" for="licEmail">E-mail da compra</label><input type="email" id="licEmail" value="${esc(l?.email || '')}"></div>
+  <div class="campo"><label class="r" for="licNova">Licença nova</label><div class="linha"><input type="text" id="licNova" placeholder="TL1-…" autocomplete="off" spellcheck="false"><button class="btn" id="trocarLic" type="button">Trocar</button></div></div></details></div>`;
+}
+
 /** As regras do dia: o que mudamos sem publicar código (versão do Meta, campos dos checkouts, avisos). */
 function cartaoRegras() {
   const r = S.regras || {};
@@ -638,6 +648,11 @@ function cartaoRegras() {
 }
 TELAS.atualizacoes.ligar = async (raiz) => {
   ligarConfirmacoes(raiz);
+  acao('#trocarLic', async () => {
+    const r = await api('licenca', { email: $('#licEmail').value.trim(), licenca: $('#licNova').value.trim() });
+    if (!r.ok) throw new Error(r.j.erro || 'Não consegui trocar');
+    toast('Licença trocada');
+  });
   raiz.querySelectorAll('input[name=r]').forEach((i) => i.addEventListener('change', async () => {
     i.closest('.tog').classList.toggle('on', i.checked);
     const r = await api('regras', { ligadas: i.checked });

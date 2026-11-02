@@ -11,6 +11,10 @@
 import { alertar, lerConfig, lerSegredo } from './config.js';
 import { enviarEvento, montarEvento } from './meta.js';
 import { lerRegras, versaoMeta } from './regras.js';
+import { licencaAtiva } from './licenca.js';
+
+/** Os pixels que recebem: todos os configurados, se houver licenca ativa. */
+const pixelsDaLicenca = (cfg, licenca) => (licenca ? cfg.pixels : []);
 
 const SETE_DIAS = 7 * 24 * 3600;
 // Margem: o Meta recusa evento com mais de 7 dias; tenta so ate 6 dias e meio.
@@ -113,13 +117,15 @@ export async function processarVenda(env, venda, formato, { agoraSeg = Math.floo
 
     const token = await lerSegredo(env, 'meta_token');
     const regras = await lerRegras(env);
-    if (!cfg.pixels.length || !token) {
+    // Sem licenca ativa, a venda fica guardada como se faltasse configuracao.
+    const pixels = pixelsDaLicenca(cfg, await licencaAtiva(env));
+    if (!pixels.length || !token) {
       await registrar(env, { ...base, pixel: '*', status: 'sem_config', evento_json: JSON.stringify(evento) });
       return { acao: 'guardado', motivo: 'sem pixel ou chave' };
     }
 
     const resultados = {};
-    for (const pixel of cfg.pixels) {
+    for (const pixel of pixels) {
       const ja = await env.DB.prepare('SELECT status, teste FROM envios WHERE pedido = ? AND evento = ? AND pixel = ?')
         .bind(venda.pedido, nome, pixel).first();
       // Reenvio do checkout: o que ja foi aceito de verdade nao vai de novo.
@@ -144,6 +150,7 @@ export async function reenviarPendentes(env, { agoraSeg = Math.floor(Date.now() 
     const cfg = await lerConfig(env);
     const token = await lerSegredo(env, 'meta_token');
     const regras = await lerRegras(env);
+    const pixels = pixelsDaLicenca(cfg, await licencaAtiva(env));
     const { results } = await env.DB.prepare(
       `SELECT * FROM envios WHERE evento_json IS NOT NULL AND status IN ('falhou','chave_invalida','sem_config')
        ORDER BY quando LIMIT ?`,
@@ -157,7 +164,7 @@ export async function reenviarPendentes(env, { agoraSeg = Math.floor(Date.now() 
         resumo.expirados++;
         continue;
       }
-      if (!token || !cfg.pixels.length) continue;
+      if (!token || !pixels.length) continue;
       // Com chave invalida, so vale tentar se a chave foi trocada depois do erro.
       if (l.status === 'chave_invalida') {
         const s = await env.DB.prepare("SELECT quando FROM segredos WHERE nome = 'meta_token'").first();
@@ -166,7 +173,7 @@ export async function reenviarPendentes(env, { agoraSeg = Math.floor(Date.now() 
       const base = {
         pedido: l.pedido, evento: l.evento, event_id: l.event_id, visita: l.visita, campos: l.campos, formato: l.formato,
       };
-      const alvos = l.pixel === '*' ? cfg.pixels : [l.pixel];
+      const alvos = l.pixel === '*' ? pixels : [l.pixel].filter((p) => pixels.includes(p));
       for (const pixel of alvos) {
         resumo.tentados++;
         const st = await enviarERegistrar(env, cfg, regras, token, base, pixel, evento, (l.tentativas || 0) + 1);

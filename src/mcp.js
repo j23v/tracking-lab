@@ -17,6 +17,7 @@ import { PERFIS } from './checkouts/perfis.js';
 import {
   CONFIRMACOES, IDS_DE_CHECKOUT, gravarConfig, gravarSegredo, lerSegredo,
 } from './config.js';
+import { licencaAtiva } from './licenca.js';
 import { CHECKOUT_INFO, RECEITAS_PAGINA, ferramentasRisco, semHtml } from './receitas.js';
 
 const VERSOES = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -143,6 +144,7 @@ export function receita(etapa, st, origem, plataforma) {
 
 async function chamar(nome, args, env, origem, versao) {
   const a = args && typeof args === 'object' ? args : {};
+  if (!(await licencaAtiva(env))) return { erro: 'O Tracking Lab ainda não foi ativado: a pessoa precisa colar a licença no Hub (/lab).' };
   const st = () => estado(env, versao);
   switch (nome) {
     case 'tl_status': { const s = await st(); return { texto: textoStatus(s), dados: { etapas: s.etapas, modo_teste: Boolean(s.config?.codigo_teste), alertas: s.alertas } }; }

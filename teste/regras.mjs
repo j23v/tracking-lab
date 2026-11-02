@@ -78,7 +78,7 @@ secao('busca');
 const servidor = (corpo, assinatura, status = 200) => async (url) => ({
   ok: status === 200, text: async () => (url.endsWith('.sig') ? assinatura : corpo),
 });
-const env = { TL_REGRAS_CHAVE: pub, TL_ORIGEM_RAW: 'https://exemplo.invalid' };
+const env = { TL_CHAVE_TESTE: pub, TL_ORIGEM_RAW: 'https://exemplo.invalid' };
 ok('arquivo bom: aceito', (await buscarRegras(env, 'x/y', servidor(texto, sig))).ok);
 ok('CONTROLE: assinatura errada: recusado', (await buscarRegras(env, 'x/y', servidor(texto.replace('v26', 'v27'), sig))).motivo === 'assinatura');
 ok('CONTROLE: sem arquivo: recusado', (await buscarRegras(env, 'x/y', servidor('', '', 404))).motivo === 'sem_arquivo');

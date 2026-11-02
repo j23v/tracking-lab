@@ -14,6 +14,7 @@ import { conferirChave, lerQualidade } from './meta.js';
 import { testeComControle } from './motor.js';
 import { estadoDasEtapas } from './receitas.js';
 import { estadoDasRegras, lerRegras, perfilComRegras, versaoMeta } from './regras.js';
+import { licencaAtiva } from './licenca.js';
 
 export const TABELAS = ['alertas', 'config', 'envios', 'segredos', 'visitas'];
 
@@ -29,7 +30,7 @@ export async function estado(env, versao) {
   const st = {
     versao, banco: 'ok', tabelas: [], tabelasFaltando: [...TABELAS], ultimoCron: null,
     segredos: [], config: null, ultimoWebhook: null, envios24h: [], alertas: [],
-    deteccao: null, ultimoTeste: null, visitas24h: null, etapas: [], ultimaConferencia: null, regras: null,
+    deteccao: null, ultimoTeste: null, visitas24h: null, etapas: [], ultimaConferencia: null, regras: null, licenca: null,
   };
   if (!env.DB) return { ...st, banco: 'sem_binding' };
   try {
@@ -59,6 +60,9 @@ export async function estado(env, versao) {
       'SELECT count(*) n, sum(fbc IS NOT NULL) fbc, sum(fbp IS NOT NULL) fbp, max(vista) ultima FROM visitas WHERE vista >= ?',
     ).bind(desde).first();
     st.regras = await estadoDasRegras(env);
+    const lic = await licencaAtiva(env);
+    // So o que a pessoa precisa ver; o codigo da licenca nao volta para a tela.
+    st.licenca = lic ? { email: lic.email, emitida: lic.emitida } : null;
     st.etapas = estadoDasEtapas(st);
   } catch (erro) {
     st.banco = `erro: ${String(erro).slice(0, 120)}`;

@@ -3,7 +3,7 @@
 Suas vendas do checkout chegam ao Meta pelo servidor, ligadas ao clique do anúncio, com um Hub que
 ensina e confere cada passo.
 
-> **Versão 0.7 (em teste).** O **Hub** tem as 11 etapas, cada uma com o passo a passo e a sua
+> **Versão 0.8 (em teste).** O **Hub** tem as 11 etapas, cada uma com o passo a passo e a sua
 > luz: suas plataformas (lidas da página), chave do Meta, página, checkout, anti-duplicação, teste
 > com controle, ligar, resultados, privacidade, reembolso e atualizações. O botão **Assistente**
 > traz uma IA grátis que explica os passos, na sua própria conta Cloudflare, liga a sua IA ao
@@ -22,7 +22,8 @@ ensina e confere cada passo.
 ## Instalar (≈10 min)
 1. Entre (ou crie) na Cloudflare e no GitHub.
 2. Aperte o botão acima, dê um nome e crie a **senha do Hub** (campo `SENHA_HUB`, 12+ caracteres).
-3. No fim, abra `https://<seu-projeto>.<sua-conta>.workers.dev/lab` e entre com a senha.
+3. No fim, abra `https://<seu-projeto>.<sua-conta>.workers.dev/lab`, entre com a senha e ative com o
+   e-mail da compra e a licença que chegou com ela.
    Para conferir sem entrar: `.../saude` deve mostrar `"ok": true`.
 
 Usa uma IA que roda comandos (Claude Code, Codex, Cursor, Goose)? Peça: *"instale o Tracking Lab

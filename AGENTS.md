@@ -17,6 +17,9 @@ Meta pelo servidor. Fale simples, em passos curtos, e confirme antes de agir.
   `"ok": true`. Se vier `senha: "falta"` ou `"curta"`, ajude a gravar a `SENHA_HUB`.
 
 ## Depois de instalado
+- **Licença:** depois da senha, o Hub pede o e-mail da compra e a licença (começa com `TL1-`). Sem ela,
+  nada se configura (a API responde 402) e o conector não age. Peça para a pessoa colar a licença no
+  Hub. Uma licença vale para quantos perfis (pixels) a pessoa quiser.
 - Tudo se configura no **Hub** (`/lab`), etapa por etapa. **Quem diz se um passo ficou certo é o
   Hub**, não você: depois de cada ação, peça para conferir lá (ou use `tl_status` e
   `tl_detectar_pagina` pelo conector).

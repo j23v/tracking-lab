@@ -20,6 +20,12 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORTA = 8797;
 const BASE = `http://127.0.0.1:${PORTA}`;
 const SENHA = 'senha-da-suite-f0-123';
+// A licenca da suite: assinada com uma chave SO da suite (TL_CHAVE_TESTE).
+const par = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+const CHAVE = Buffer.from(await crypto.subtle.exportKey('raw', par.publicKey)).toString('base64');
+const b64url = (b) => Buffer.from(b).toString('base64url');
+const DADOS = b64url(JSON.stringify({ v: 1, e: 'suite@exemplo.com', p: 'F0', n: 1, d: '2026-11-02' }));
+const LICENCA = `TL1-${DADOS}.${b64url(await crypto.subtle.sign({ name: 'Ed25519' }, par.privateKey, new TextEncoder().encode(`tracking-lab-licenca:${DADOS}`)))}`;
 
 // O wrangler do `npm install`; WRANGLER=<caminho> usa outro ja instalado.
 const WR = process.env.WRANGLER
@@ -98,7 +104,7 @@ try {
   ok('migracao aplicada no D1 local', true);
 
   worker = spawn(WR, ['dev', '--local', '--port', String(PORTA), '--ip', '127.0.0.1', '--persist-to', `"${estado}"`,
-    '--test-scheduled', '--var', `SENHA_HUB:${SENHA}`, '--show-interactive-dev-session=false'],
+    '--test-scheduled', '--var', `SENHA_HUB:${SENHA}`, '--var', `TL_CHAVE_TESTE:${CHAVE}`, '--show-interactive-dev-session=false'],
   { cwd: RAIZ, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const fim = Date.now() + 90000;
   let subiu = false;
@@ -128,6 +134,12 @@ try {
   ok('senha certa -> entra (cookie HttpOnly)', certa.status === 303 && cookie.startsWith('tl_sessao=')
     && /HttpOnly/i.test(certa.headers.get('set-cookie') || ''));
 
+  const ativacao = await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text();
+  ok('instalacao nova: depois da senha, pede a licenca', ativacao.includes('Ative o seu Tracking Lab'));
+  const ativou = await fetch(`${BASE}/lab/ativar`, {
+    method: 'POST', redirect: 'manual', headers: { Cookie: cookie }, body: new URLSearchParams({ email: 'suite@exemplo.com', licenca: LICENCA }),
+  });
+  ok('licenca ativada', ativou.status === 303);
   const painel = await (await fetch(`${BASE}/lab`, { headers: { Cookie: cookie } })).text();
   ok('com login, abre o Hub (nao a tela de entrar)', painel.includes('id="passos"') && !painel.includes('Entrar no seu Hub'));
 

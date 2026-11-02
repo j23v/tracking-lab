@@ -18,10 +18,11 @@ import { conferir, dispensar } from './alertas.js';
 import { autenticar, traduzir } from './checkouts/perfil.js';
 import { EM_BREVE, PERFIS } from './checkouts/perfis.js';
 import { alertar, gravarConfig, lerConfig, lerSegredo, resolverAlertas } from './config.js';
-import { paginaEntrar, paginaSemSenha } from './hub.js';
+import { paginaAtivar, paginaEntrar, paginaSemSenha } from './hub.js';
 import { paginaApp } from './hub/app.js';
 import { respostaIcone, respostaLogo } from './hub/marca.js';
 import { rotaChat } from './ia.js';
+import { ativarLicenca, licencaAtiva } from './licenca.js';
 import { ligarRegras, lerRegras } from './regras.js';
 import { conectorAtivo, criarConector, rotaMcp } from './mcp.js';
 import { formatoDoPayload, processarVenda, reenviarPendentes } from './motor.js';
@@ -33,7 +34,7 @@ import {
 
 // ⚠️ Sem `export` aqui: o modulo principal do Worker so pode exportar handlers
 // (o runtime recusa subir com uma constante exportada -- visto na F0).
-const VERSAO = '0.7.0';
+const VERSAO = '0.8.0';
 // A origem publica do Tracking Lab (versoes novas e a rotina de atualizacao).
 const ORIGEM_REPO = 'j23v/tracking-lab';
 
@@ -176,6 +177,12 @@ async function rotaDaApi(caminho, request, env) {
     return resp(await ligarRegras(env, ligadas !== false));
   }
 
+  // Trocar a licenca. A 1a ativacao e por /lab/ativar.
+  if (caminho === '/lab/api/licenca' && metodo === 'POST') {
+    const { email, licenca } = (await corpoJson(request)) || {};
+    return resp(await ativarLicenca(env, email, licenca));
+  }
+
   // Alertas: dispensar um aviso de evento, ou conferir tudo agora.
   if (caminho === '/lab/api/alertas' && metodo === 'POST') {
     const { tipo } = (await corpoJson(request)) || {};
@@ -270,6 +277,18 @@ export default {
 
       if (!(await logado(request, env))) {
         return caminho.startsWith('/lab/api/') ? json({ erro: 'entre no Hub primeiro' }, 401) : html(paginaEntrar());
+      }
+      // Sem licenca valida: so a tela de ativacao (e o estado, que nao muda nada).
+      const licenca = await licencaAtiva(env);
+      if (!licenca) {
+        if (caminho === '/lab/ativar' && request.method === 'POST') {
+          const form = await request.formData().catch(() => null);
+          const r = await ativarLicenca(env, form?.get('email'), form?.get('licenca'));
+          if (!r.ok) return html(paginaAtivar({ erro: r.erro, email: String(form?.get('email') || '') }), 400);
+          return new Response(null, { status: 303, headers: { Location: '/lab' } });
+        }
+        if (caminho.startsWith('/lab/api/') && caminho !== '/lab/api/status') return json({ erro: 'ative a licença do Tracking Lab primeiro' }, 402);
+        if (caminho === '/lab') return html(paginaAtivar());
       }
       if (caminho.startsWith('/lab/api/')) {
         try {
