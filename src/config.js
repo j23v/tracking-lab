@@ -120,6 +120,8 @@ export async function gravarConfig(env, parcial) {
      ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, quando = excluded.quando`,
   ).bind(k, JSON.stringify(val), agora));
   if (linhas.length) await env.DB.batch(linhas);
+  // Lista de produtos mudou: o aviso de "produto fora da lista" ja foi visto.
+  if ('produtos' in v.config) await resolverAlertas(env, ['produto_fora']);
   return { ok: true, config: await lerConfig(env) };
 }
 
@@ -138,6 +140,13 @@ export async function lerSegredo(env, nome) {
   const r = await env.DB.prepare('SELECT cifrado FROM segredos WHERE nome = ?').bind(nome).first();
   if (!r) return '';
   try { return await decifrar(r.cifrado, env.SENHA_HUB); } catch { return ''; }
+}
+
+/** Apaga (resolve) os alertas desses tipos. */
+export async function resolverAlertas(env, tipos) {
+  if (!tipos.length) return;
+  await env.DB.prepare(`UPDATE alertas SET resolvido = ? WHERE resolvido IS NULL AND tipo IN (${tipos.map(() => '?').join(',')})`)
+    .bind(Date.now(), ...tipos).run();
 }
 
 /** Um alerta por tipo a cada 24 h, no maximo (um robo na rota nao enche a tabela). */

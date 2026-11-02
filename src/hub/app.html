@@ -255,18 +255,27 @@ TELAS.painel = () => {
   return `<h1>Painel</h1><p class="sub">Tudo do seu rastreamento num lugar. Siga as etapas: cada luz verde é um passo certo.</p>
   ${p ? `<div class="card destaque"><span class="rot">Próximo passo</span><h2 style="margin:6px 0 8px">${p.t}</h2><a class="btn pri" href="#/${p.id}">Continuar →</a></div>`
       : '<div class="card destaque"><span class="rot">Tudo pronto</span><h2 style="margin:6px 0 8px">Seu rastreamento está valendo</h2><a class="btn" href="#/resultados">Ver resultados →</a></div>'}
-  ${(S.alertas || []).map((a) => `<div class="aviso bad"><b>${esc(textoAlerta(a.tipo))}</b> <span class="mu sm">· ${quando(a.quando)}</span></div>`).join('')}
+  ${(S.alertas || []).map((a) => `<div class="aviso bad"><b>${esc(a.texto || a.tipo)}</b>${a.detalhe ? `<div class="mu sm" style="margin-top:4px">${esc(a.detalhe)}</div>` : ''}<div class="linha" style="margin-top:8px"><span class="mu sm">desde ${quando(a.quando)}</span>${a.etapa ? `<a class="btn sm" href="#/${esc(a.etapa)}">Resolver →</a>` : ''}${a.dispensavel ? `<button class="btn sm fant" type="button" data-dispensar="${esc(a.tipo)}">Dispensar</button>` : ''}</div></div>`).join('')}
   <div class="grade">
     <div class="card"><span class="rot">Compras aceitas · 24 h</span><div class="num">${tot('Purchase', 'enviado')}</div><span class="mu sm">com problema: ${tot('Purchase') - tot('Purchase', 'enviado')}</span></div>
     <div class="card"><span class="rot">Visitas · 24 h</span><div class="num">${S.visitas24h?.n || 0}</div><span class="mu sm">com clique de anúncio: ${S.visitas24h?.fbc || 0}</span></div>
     <div class="card"><span class="rot">Último aviso de venda</span><div class="num" style="font-size:20px;margin-top:6px">${S.ultimoWebhook ? quando(S.ultimoWebhook.quando) : '—'}</div><span class="mu sm">${S.ultimoWebhook ? esc(nomeCk(S.ultimoWebhook.checkout)) + ' · ' + esc(S.ultimoWebhook.tipo || '') : 'nenhum ainda'}</span></div>
   </div>
+  <p class="mu sm linha" style="margin-top:10px">Conferência automática: ${S.ultimaConferencia ? `a última foi em ${quando(S.ultimaConferencia)}` : 'ainda não rodou'}. <button class="btn sm fant" type="button" id="conferirAgora">Conferir agora</button></p>
   <h2>Etapas</h2><div class="card">${ETAPAS.map((e, i) => lin(e.st(), `<a href="#/${e.id}" style="color:inherit;text-decoration:none">${String(i + 1).padStart(2, '0')} · ${e.t}</a>`, e.opc ? 'opcional' : '')).join('')}</div>`;
 };
 
-function textoAlerta(t) {
-  return ({ chave_invalida: 'A chave do Meta parou de funcionar — gere outra na etapa Chave do Meta', webhook_sem_token: 'Chegou um aviso de venda, mas falta o token do checkout', webhook_token_errado: 'Chegou um aviso de venda com o token errado' })[t] || t;
-}
+TELAS.painel.ligar = (raiz) => {
+  raiz.querySelectorAll('[data-dispensar]').forEach((b) => acao(b, async () => {
+    const r = await api('alertas', { tipo: b.dataset.dispensar });
+    if (!r.ok) throw new Error(r.j.erro || 'Não consegui dispensar');
+  }));
+  acao('#conferirAgora', async () => {
+    const r = await api('conferir', {});
+    if (r.j.erro) throw new Error('Não consegui conferir agora');
+    toast(r.j.acesos?.length ? 'Conferido: há avisos para ver' : 'Conferido: tudo certo');
+  });
+};
 
 TELAS.plataformas = () => {
   const d = S.deteccao;

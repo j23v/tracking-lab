@@ -6,7 +6,7 @@
 //                       (src/checkouts/perfis.js; "outro" = perfil do cliente)
 //   /lab, /lab/api/*    o Hub, atras da senha do cliente (SENHA_HUB)
 //   /mcp/<segredo>      o conector da IA do cliente (src/mcp.js)
-//   cron (10 min)       nova tentativa de envio, limpeza das visitas
+//   cron (10 min)       nova tentativa de envio, limpeza das visitas, alertas
 //
 // As acoes que o Hub e a IA fazem igual ficam em src/acoes.js.
 
@@ -14,9 +14,10 @@ import {
   analisar, confirmar, detectar, envios, estado, gravarMarca, gruposDaPagina, lerCorpo,
   perfilDe, qualidade, rodarTeste, salvarPerfilOutro, salvarSegredo,
 } from './acoes.js';
+import { conferir, dispensar } from './alertas.js';
 import { autenticar, traduzir } from './checkouts/perfil.js';
 import { EM_BREVE, PERFIS } from './checkouts/perfis.js';
-import { alertar, gravarConfig, lerConfig, lerSegredo } from './config.js';
+import { alertar, gravarConfig, lerConfig, lerSegredo, resolverAlertas } from './config.js';
 import { paginaEntrar, paginaSemSenha } from './hub.js';
 import { paginaApp } from './hub/app.js';
 import { respostaIcone, respostaLogo } from './hub/marca.js';
@@ -31,7 +32,7 @@ import {
 
 // ⚠️ Sem `export` aqui: o modulo principal do Worker so pode exportar handlers
 // (o runtime recusa subir com uma constante exportada -- visto na F0).
-const VERSAO = '0.5.1';
+const VERSAO = '0.6.0';
 // A origem publica do Tracking Lab (versoes novas e a rotina de atualizacao).
 const ORIGEM_REPO = 'j23v/tracking-lab';
 
@@ -77,11 +78,13 @@ async function rotaDoWebhook(request, env, ctx, id) {
   const cru = lerCorpo(texto, request.headers.get('Content-Type'));
   const auth = await autenticar(perfil, request, texto, cru || {}, await lerSegredo(env, `${id}_token`));
   if (!auth.ok) {
-    ctx.waitUntil(alertar(env, auth.onde === 'sem_token' ? 'webhook_sem_token' : 'webhook_token_errado', `${id}: ${auth.onde}`));
+    ctx.waitUntil(alertar(env, auth.onde === 'sem_token' ? 'webhook_sem_token' : 'webhook_token_errado', `checkout: ${perfil.nome || id}`));
     return json({ erro: 'token invalido' }, 401);
   }
   if (!cru || typeof cru !== 'object') return json({ erro: 'corpo nao e JSON nem formulario' }, 400);
   const venda = traduzir(perfil, cru);
+  // Um aviso autenticado: os recusados por token ja foram resolvidos.
+  ctx.waitUntil(resolverAlertas(env, ['webhook_sem_token', 'webhook_token_errado']).catch(() => {}));
   const formato = formatoDoPayload(cru);
   ctx.waitUntil((async () => {
     await gravarMarca(env, 'ultimo_webhook', { quando: Date.now(), checkout: id, evento: venda.evento, tipo: venda.tipo, onde: auth.onde, formato });
@@ -164,6 +167,15 @@ async function rotaDaApi(caminho, request, env) {
     let ultima = '';
     try { ultima = JSON.parse(pacote).version || ''; } catch { /* sem rede: fica vazio */ }
     return json({ instalada: VERSAO, ultima, origem: ORIGEM_REPO, rotina });
+  }
+
+  // Alertas: dispensar um aviso de evento, ou conferir tudo agora.
+  if (caminho === '/lab/api/alertas' && metodo === 'POST') {
+    const { tipo } = (await corpoJson(request)) || {};
+    return resp(await dispensar(env, String(tipo || '')));
+  }
+  if (caminho === '/lab/api/conferir' && metodo === 'POST') {
+    return json(await conferir(env, { versao: VERSAO, repo: ORIGEM_REPO, forcar: true }));
   }
 
   if (caminho === '/lab/api/reenviar' && metodo === 'POST') return json(await reenviarPendentes(env));
@@ -274,6 +286,7 @@ export default {
     await env.DB.prepare("DELETE FROM config WHERE chave = 'exemplo_outro' AND quando < ?").bind(Date.now() - 24 * 3600 * 1000).run();
     const reenvio = await reenviarPendentes(env);
     const visitas = await limparVisitas(env);
-    console.log(`Cron: reenvio ${JSON.stringify(reenvio)} visitas ${JSON.stringify(visitas)}`);
+    const alertas = await conferir(env, { versao: VERSAO, repo: ORIGEM_REPO });
+    console.log(`Cron: reenvio ${JSON.stringify(reenvio)} visitas ${JSON.stringify(visitas)} alertas ${JSON.stringify(alertas)}`);
   },
 };

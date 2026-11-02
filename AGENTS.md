@@ -50,6 +50,7 @@ Entre com `POST /lab/entrar` (formulário, campo `senha`) e use o cookie `tl_ses
 | teste com controle | `POST /lab/api/teste-controle` (precisa do modo teste) |
 | nota do Meta | `GET /lab/api/qualidade` |
 | envios recentes | `GET /lab/api/envios?horas=24` |
+| alertas | vêm em `GET /lab/api/status` (`alertas`, com texto e etapa); `POST /lab/api/conferir` confere agora; `POST /lab/api/alertas` `{"tipo":"..."}` dispensa um aviso de venda |
 
 ### Checkout sem perfil pronto ("Outro checkout")
 1. Pegue um webhook de exemplo, de um destes jeitos:

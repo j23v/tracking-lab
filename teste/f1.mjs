@@ -42,6 +42,8 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 // ------------------------------------------------------------ o Meta falso
 const chamadas = [];
 let falhou500 = false;
+let paginaSemScript = false; // a pessoa tirou a linha da pagina (alerta script_sumiu)
+let notaFalsa = 9.0;         // a nota que o Meta falso devolve (alerta nota_baixa)
 const meta = createServer((req, res) => {
   let corpo = '';
   req.on('data', (c) => { corpo += c; });
@@ -51,13 +53,15 @@ const meta = createServer((req, res) => {
       res.setHeader('Content-Type', 'text/html');
       res.setHeader('x-litespeed-cache', 'hit');
       res.end(`<html><head><link rel="stylesheet" href="/wp-content/themes/x.css"><script src="https://cdn.utmify.com.br/scripts/utms/latest.js"></script>
-<script src="${BASE}/v.js" async></script><script>fbq('init', '111111'); fbq('track','Purchase');</script></head>
+${paginaSemScript ? '' : `<script src="${BASE}/v.js" async></script>`}<script>fbq('init', '111111'); fbq('track','Purchase');</script></head>
 <body class="elementor-page"><a href="https://pay.kirvano.com/abc">Comprar</a></body></html>`);
       return;
     }
     res.setHeader('Content-Type', 'application/json');
+    // A origem publica do Tracking Lab (a versao mais nova), como o raw do GitHub.
+    if (req.url === '/j23v/tracking-lab/main/package.json') { res.end(JSON.stringify({ version: '9.9.9' })); return; }
     if (req.url.includes('/dataset_quality')) {
-      res.end(JSON.stringify({ web: [{ event_name: 'Purchase', event_match_quality: { composite_score: 9.0 } }] }));
+      res.end(JSON.stringify({ web: [{ event_name: 'Purchase', event_match_quality: { composite_score: notaFalsa } }] }));
       return;
     }
     const j = JSON.parse(corpo || '{}');
@@ -127,7 +131,7 @@ try {
   wr(['d1', 'migrations', 'apply', 'DB', '--local', '--persist-to', `"${estado}"`]);
   ok('migracoes 0001 e 0002 aplicadas', true);
   worker = spawn(WR, ['dev', '--local', '--port', String(PORTA), '--ip', '127.0.0.1', '--persist-to', `"${estado}"`, '--test-scheduled',
-    '--var', `SENHA_HUB:${SENHA}`, '--var', `META_GRAPH_BASE:http://127.0.0.1:${PORTA_META}`, '--var', 'META_GRAPH_VERSAO:v25.0',
+    '--var', `SENHA_HUB:${SENHA}`, '--var', `META_GRAPH_BASE:http://127.0.0.1:${PORTA_META}`, '--var', 'META_GRAPH_VERSAO:v25.0', '--var', `TL_ORIGEM_RAW:http://127.0.0.1:${PORTA_META}`,
     '--show-interactive-dev-session=false'], { cwd: RAIZ, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const fim = Date.now() + 90000;
   let subiu = false;
@@ -156,6 +160,7 @@ try {
   const semCfg = await envio('V-SEMCFG', 'Purchase', '*');
   ok('fica como sem_config, guardada', semCfg?.status === 'sem_config', semCfg?.status);
   ok('nada foi ao Meta', chamadas.length === 0);
+  ok('aviso autenticado apaga o alerta do token', !(await api('/lab/api/status')).j.alertas.some((a) => a.tipo === 'webhook_sem_token'));
 
   secao('configuracao');
   ok('CONTROLE: pixel invalido recusado', (await api('/lab/api/config', { pixels: ['abc'] })).status === 400);
@@ -437,6 +442,35 @@ try {
   ok('CONTROLE: JSON ruim -> 400', (await fetch(urlMcp, { method: 'POST', body: '{' })).status === 400);
   const lote = await fetch(urlMcp, { method: 'POST', body: JSON.stringify([{ jsonrpc: '2.0', id: 1, method: 'ping' }, { jsonrpc: '2.0', id: 2, method: 'ping' }]) });
   ok('lote de mensagens', (await lote.json()).length === 2);
+  secao('alertas');
+  const alerta = async (tipo) => (await api('/lab/api/status')).j.alertas.find((a) => a.tipo === tipo);
+  await fetch(`${BASE}/__scheduled?cron=${encodeURIComponent('*/10 * * * *')}`);
+  ok('o cron conferiu', Boolean((await api('/lab/api/status')).j.ultimaConferencia));
+  await api('/lab/api/config', { produtos: [PRODUTO] });
+  await webhook(venda({ sale_id: 'V-OUTRO2', products: [{ id: 'p9', name: 'Outro Produto' }] }));
+  await espera(1000);
+  const pf = await alerta('produto_fora');
+  ok('venda de outro produto: alerta com o nome do produto', pf?.detalhe === 'Outro Produto' && pf.dispensavel && pf.etapa === 'checkout');
+  ok('CONTROLE: Pix gerado (outro evento) nao vira "formato novo"', !(await alerta('formato_novo')));
+  await webhook(venda({ sale_id: undefined, checkout_id: undefined }));
+  await espera(1000);
+  ok('aviso sem numero do pedido: alerta "formato novo"', Boolean(await alerta('formato_novo')));
+  ok('dispensar um aviso de evento', (await api('/lab/api/alertas', { tipo: 'produto_fora' })).j.ok && !(await alerta('produto_fora')));
+  await api('/lab/api/config', { produtos: [] });
+  ok('CONTROLE: aviso de condicao nao se dispensa', (await api('/lab/api/alertas', { tipo: 'sem_visitas' })).status === 400);
+  const c0 = await api('/lab/api/conferir', {});
+  ok('conferir agora: pagina com o script e nota 9 -> sem alerta', c0.j.acesos && !c0.j.acesos.includes('script_sumiu') && !c0.j.acesos.includes('nota_baixa'), JSON.stringify(c0.j));
+  ok('CONTROLE: versao nova de hoje ainda nao vira alerta', !c0.j.acesos.includes('versao_antiga'));
+  paginaSemScript = true; notaFalsa = 4.2;
+  await api('/lab/api/conferir', {});
+  const ss = await alerta('script_sumiu');
+  ok('a linha saiu da pagina: alerta', Boolean(ss) && ss.etapa === 'pagina' && !ss.dispensavel);
+  ok('nota baixa: alerta com a nota', /nota 4.2/.test((await alerta('nota_baixa'))?.detalhe || ''));
+  ok('o status da IA mostra o texto do alerta', /ALERTA: A linha do Tracking Lab/.test((await ferr('tl_status')).txt));
+  paginaSemScript = false; notaFalsa = 9.0;
+  await api('/lab/api/conferir', {});
+  ok('a pessoa colou de volta e a nota subiu: os dois somem sozinhos', !(await alerta('script_sumiu')) && !(await alerta('nota_baixa')));
+
   const novoMcp = (await api('/lab/api/conector', {})).j.url;
   ok('CONTROLE: criar outro endereco derruba o anterior', (await fetch(urlMcp, { method: 'POST', body: '{}' })).status === 404 && (await rpc('ping', {}, novoMcp)).status === 200);
 } catch (erro) {

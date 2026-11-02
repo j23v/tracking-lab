@@ -90,7 +90,7 @@ export function textoStatus(st) {
     proxima ? `Próxima etapa: ${proxima.titulo} (use tl_receita com etapa "${proxima.id}").` : 'Todas as etapas obrigatórias estão OK.',
     '', ...linhas, '',
     `Últimas 24 h: ${aceitas} compras aceitas pelo Meta; ${st.visitas24h?.n || 0} visitas (${st.visitas24h?.fbc || 0} com clique de anúncio).`,
-    ...(st.alertas || []).map((a) => `ALERTA: ${a.tipo}${a.detalhe ? ` (${a.detalhe})` : ''}`),
+    ...(st.alertas || []).map((a) => `ALERTA: ${a.texto || a.tipo}${a.detalhe ? ` (${a.detalhe})` : ''}${a.etapa ? ` [etapa ${a.etapa}]` : ''}`),
   ].join('\n');
 }
 

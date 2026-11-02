@@ -3,10 +3,11 @@
 // pagina, rodar o teste com controle, ler a nota, montar o "outro checkout".
 // Uma regra so para os dois caminhos.
 
+import { descreverAlerta, registrarDeteccao } from './alertas.js';
 import { analisarExemplo, traduzir, validarPerfil } from './checkouts/perfil.js';
 import { PERFIS } from './checkouts/perfis.js';
 import {
-  gravarConfig, gravarSegredo, lerConfig, lerSegredo, segredoValido,
+  gravarConfig, gravarSegredo, lerConfig, lerSegredo, resolverAlertas, segredoValido,
 } from './config.js';
 import { detectarPagina } from './deteccao.js';
 import { GRAPH_VERSAO_PADRAO, conferirChave, lerQualidade } from './meta.js';
@@ -27,7 +28,7 @@ export async function estado(env, versao) {
   const st = {
     versao, banco: 'ok', tabelas: [], tabelasFaltando: [...TABELAS], ultimoCron: null,
     segredos: [], config: null, ultimoWebhook: null, envios24h: [], alertas: [],
-    deteccao: null, ultimoTeste: null, visitas24h: null, etapas: [],
+    deteccao: null, ultimoTeste: null, visitas24h: null, etapas: [], ultimaConferencia: null,
   };
   if (!env.DB) return { ...st, banco: 'sem_binding' };
   try {
@@ -46,7 +47,9 @@ export async function estado(env, versao) {
     st.envios24h = (await env.DB.prepare(
       'SELECT evento, status, teste, count(*) n FROM envios WHERE quando >= ? GROUP BY evento, status, teste ORDER BY evento, n DESC',
     ).bind(desde).all()).results;
-    st.alertas = (await env.DB.prepare('SELECT tipo, quando, detalhe FROM alertas WHERE resolvido IS NULL ORDER BY quando DESC LIMIT 10').all()).results;
+    st.alertas = (await env.DB.prepare('SELECT tipo, quando, detalhe FROM alertas WHERE resolvido IS NULL ORDER BY quando DESC LIMIT 10').all()).results.map(descreverAlerta);
+    const conf = await marca('ultima_conferencia');
+    st.ultimaConferencia = conf ? Number(conf) : null;
     const det = await marca('deteccao');
     st.deteccao = det ? JSON.parse(det) : null;
     const t = await marca('ultimo_teste');
@@ -122,7 +125,7 @@ export async function salvarSegredo(env, nome, valor) {
   }
   const dica = await gravarSegredo(env, nome, v);
   // Chave nova: o que estava parado por chave invalida sai no proximo reenvio.
-  if (nome === 'meta_token') await env.DB.prepare("UPDATE alertas SET resolvido = ? WHERE tipo = 'chave_invalida' AND resolvido IS NULL").bind(Date.now()).run();
+  if (nome === 'meta_token') await resolverAlertas(env, ['chave_invalida']);
   return { ok: true, status: 200, nome, dica };
 }
 
@@ -133,7 +136,7 @@ export async function detectar(env, url, origemDoWorker) {
   if (!alvo) return { ok: false, status: 400, erro: 'diga o endereço da página de vendas' };
   const r = await detectarPagina(alvo, origemDoWorker);
   if (r.quando) {
-    await gravarMarca(env, 'deteccao', r);
+    await registrarDeteccao(env, r);
     if (r.ok && (url || !cfg.dominio)) await gravarConfig(env, { dominio: r.url });
   }
   return { ...r, status: r.quando ? 200 : 422 };

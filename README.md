@@ -3,13 +3,14 @@
 Suas vendas do checkout chegam ao Meta pelo servidor, ligadas ao clique do anúncio, com um Hub que
 ensina e confere cada passo.
 
-> **Versão 0.5 (em teste).** O **Hub** tem as 11 etapas, cada uma com o passo a passo e a sua
+> **Versão 0.6 (em teste).** O **Hub** tem as 11 etapas, cada uma com o passo a passo e a sua
 > luz: suas plataformas (lidas da página), chave do Meta, página, checkout, anti-duplicação, teste
 > com controle, ligar, resultados, privacidade, reembolso e atualizações. O botão **Assistente**
 > traz uma IA grátis que explica os passos, na sua própria conta Cloudflare, liga a sua IA ao
 > Tracking Lab (Claude, ChatGPT, Goose, Gemini, Cursor…) ou dá um texto pronto para colar em qualquer outra.
 > Já funcionam a instalação e o envio das vendas ao Meta (Compra e
-> Reembolso, ligados à visita da página, com nova tentativa automática). Checkouts com perfil
+> Reembolso, ligados à visita da página, com nova tentativa automática). O Painel avisa sozinho
+> quando algo para: a linha saiu da página, a chave caiu, vendas paradas, nota baixa. Checkouts com perfil
 > pronto: **Kirvano** (confirmado em vendas reais), **Kiwify**, **Hotmart**, **Eduzz** e **Cakto**
 > (pela documentação, confirmados na 1ª venda real). Também há o **Formato padrão** (API) e o
 > **Outro checkout**, montado a partir de um webhook de exemplo, para qualquer plataforma com

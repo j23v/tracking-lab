@@ -86,10 +86,15 @@ export async function processarVenda(env, venda, formato, { agoraSeg = Math.floo
     const nome = venda.tipo === 'aprovada' ? 'Purchase'
       : venda.tipo === 'reembolso' || venda.tipo === 'chargeback' ? 'Reembolso' : null;
     if (!nome) return { acao: 'ignorado', motivo: venda.evento || 'evento sem compra' };
-    if (!venda.pedido) return { acao: 'ignorado', motivo: 'sem pedido' };
+    if (!venda.pedido) {
+      await alertar(env, 'formato_novo', `evento ${String(venda.evento || '?').slice(0, 60)}`);
+      return { acao: 'ignorado', motivo: 'sem pedido' };
+    }
 
     const cfg = await lerConfig(env);
     if (cfg.produtos.length && !venda.produtos.some((p) => cfg.produtos.some((n) => mesmoProduto(p.nome, n)))) {
+      // So nome de produto no aviso (nada da pessoa).
+      if (nome === 'Purchase') await alertar(env, 'produto_fora', venda.produtos.map((p) => p.nome).filter(Boolean).join(', ').slice(0, 200));
       return { acao: 'ignorado', motivo: 'outro produto' };
     }
 
